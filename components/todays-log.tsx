@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Clock, CheckCircle, XCircle, ChevronRight, X, Calendar, Info } from 'lucide-react';
+import { Clock, CheckCircle, XCircle, ChevronRight, X, Calendar, Info, Filter } from 'lucide-react';
 
 interface Employee {
   employeeId: string;
@@ -27,6 +27,8 @@ interface DrillDown {
   } | null;
 }
 
+interface Zone { _id: string; name: string; }
+
 const COLORS = ['bg-blue-200','bg-purple-200','bg-yellow-200','bg-green-200','bg-pink-200','bg-orange-200'];
 const TEXT_COLORS = ['text-blue-700','text-purple-700','text-yellow-700','text-green-700','text-pink-700','text-orange-700'];
 
@@ -35,67 +37,77 @@ function colorIdx(name: string) {
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % COLORS.length;
   return h;
 }
-
 function initials(name: string) {
   return name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
 }
-
 function statusStyle(status: string) {
   if (status === 'Early')   return 'bg-teal-100 text-teal-700';
   if (status === 'On Time') return 'bg-green-100 text-green-700';
   if (status === 'Late')    return 'bg-yellow-100 text-yellow-700';
   return 'bg-gray-100 text-gray-500';
 }
-
-function fmtMins(m: number) {
-  if (!m) return '0m';
-  return `${Math.floor(m / 60)}h ${m % 60}m`;
-}
-
 function fmtISTTime(iso: string) {
   return new Date(iso).toLocaleTimeString('en-IN', {
     hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata',
   });
 }
-
 function getTodayIST() {
   return new Date(Date.now() + 5.5 * 60 * 60 * 1000).toISOString().split('T')[0];
 }
 
-export default function TodaysLog() {
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [present, setPresent] = useState(0);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [drill, setDrill] = useState<DrillDown | null>(null);
-  const [drillLoading, setDrillLoading] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(getTodayIST());
-  const [shiftInfo, setShiftInfo] = useState<any>(null);
+const STATUS_ORDER: Record<string, number> = { 'Early': 0, 'On Time': 1, 'Late': 2, 'Absent': 3 };
 
-  const fetchLog = (date: string) => {
-    setLoading(true);
-    fetch(`/api/attendance/heatmap?date=${date}`, { cache: 'no-store' })
-      .then(r => r.json())
-      .then(d => {
-       if (d.todayLog) {
-  const order: Record<string, number> = {
-    'Early': 0, 'On Time': 1, 'Late': 2, 'Absent': 3
-  };
-  const sorted = [...d.todayLog].sort((a: any, b: any) => {
-    // First sort by status
-    const statusDiff = (order[a.dayStatus] ?? 3) - (order[b.dayStatus] ?? 3);
+function sortEmployees(list: Employee[]) {
+  return [...list].sort((a, b) => {
+    const statusDiff = (STATUS_ORDER[a.dayStatus] ?? 3) - (STATUS_ORDER[b.dayStatus] ?? 3);
     if (statusDiff !== 0) return statusDiff;
-    // Then sort by check-in time within same status
     if (!a.checkInTime && !b.checkInTime) return 0;
     if (!a.checkInTime) return 1;
     if (!b.checkInTime) return -1;
     return a.checkInTime.localeCompare(b.checkInTime);
   });
-  setEmployees(sorted);
 }
+
+export default function TodaysLog() {
+  const [allEmployees, setAllEmployees] = useState<Employee[]>([]);
+  const [employees, setEmployees]       = useState<Employee[]>([]);
+  const [present, setPresent]           = useState(0);
+  const [total, setTotal]               = useState(0);
+  const [loading, setLoading]           = useState(true);
+  const [drill, setDrill]               = useState<DrillDown | null>(null);
+  const [drillLoading, setDrillLoading] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(getTodayIST());
+  const [shiftInfo, setShiftInfo]       = useState<any>(null);
+  const [zones, setZones]               = useState<Zone[]>([]);
+  const [selectedTeam, setSelectedTeam] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState('');
+  const [showFilters, setShowFilters]   = useState(false);
+  const [rangeStart, setRangeStart]     = useState('');
+  const [rangeEnd, setRangeEnd]         = useState('');
+  const [rangeMode, setRangeMode]       = useState(false);
+
+  useEffect(() => {
+    fetch('/api/zones').then(r => r.json())
+      .then(d => { if (d.zones) setZones(d.zones); })
+      .catch(() => {});
+  }, []);
+
+  const fetchLog = (date: string, teamId?: string) => {
+    setLoading(true);
+    const params = new URLSearchParams({ date });
+    if (teamId) params.set('team', teamId);
+    fetch(`/api/attendance/heatmap?${params}`, { cache: 'no-store' })
+      .then(r => r.json())
+      .then(d => {
+        if (d.todayLog) {
+          const sorted = sortEmployees(d.todayLog);
+          setAllEmployees(sorted);
+          setEmployees(sorted);
+          setSelectedStatus('');
+        }
         if (d.present !== undefined) setPresent(d.present);
-        if (d.total !== undefined) setTotal(d.total);
-        if (d.shiftInfo) setShiftInfo(d.shiftInfo);
+        if (d.total !== undefined)   setTotal(d.total);
+        if (d.shiftInfo)             setShiftInfo(d.shiftInfo);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -103,10 +115,42 @@ export default function TodaysLog() {
 
   useEffect(() => { fetchLog(selectedDate); }, []);
 
+  // Status filter — client side
+  useEffect(() => {
+    if (!selectedStatus) {
+      setEmployees(allEmployees);
+    } else {
+      setEmployees(allEmployees.filter(e => e.dayStatus === selectedStatus));
+    }
+  }, [selectedStatus, allEmployees]);
+
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const date = e.target.value;
     setSelectedDate(date);
-    fetchLog(date);
+    setRangeMode(false);
+    fetchLog(date, selectedTeam);
+  };
+
+  const handleTeamChange = (teamId: string) => {
+    setSelectedTeam(teamId);
+    fetchLog(selectedDate, teamId);
+  };
+
+  const handleRangeApply = () => {
+    if (!rangeStart || !rangeEnd) return;
+    setRangeMode(true);
+    fetchLog(rangeStart, selectedTeam);
+  };
+
+  const resetFilters = () => {
+    setSelectedTeam('');
+    setSelectedStatus('');
+    setRangeStart('');
+    setRangeEnd('');
+    setRangeMode(false);
+    const today = getTodayIST();
+    setSelectedDate(today);
+    fetchLog(today);
   };
 
   const openDrillDown = async (empId: string) => {
@@ -120,7 +164,8 @@ export default function TodaysLog() {
     setDrillLoading(false);
   };
 
-  const isToday = selectedDate === getTodayIST();
+  const isToday = selectedDate === getTodayIST() && !rangeMode;
+  const activeFilters = [selectedTeam, selectedStatus].filter(Boolean).length;
 
   return (
     <>
@@ -131,33 +176,90 @@ export default function TodaysLog() {
             <h2 className="text-xl md:text-2xl font-bold text-gray-800">Attendance</h2>
           </div>
           <span className="text-gray-500 text-sm md:text-base">
-            {isToday ? 'Today' : selectedDate} · <strong className="text-gray-800">{present}/{total} present</strong>
+            {rangeMode ? `${rangeStart} → ${rangeEnd}` : isToday ? 'Today' : selectedDate}
+            &nbsp;·&nbsp;<strong className="text-gray-800">{present}/{total} present</strong>
           </span>
         </div>
 
-        {/* Date picker */}
-        <div className="flex items-center gap-3 mb-4">
+        {/* Date + filter row */}
+        <div className="flex gap-2 mb-3">
           <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-2xl px-4 py-2.5 flex-1">
             <Calendar className="w-4 h-4 text-orange-500 flex-shrink-0" />
-            <input
-              type="date"
-              value={selectedDate}
-              max={getTodayIST()}
+            <input type="date" value={selectedDate} max={getTodayIST()}
               onChange={handleDateChange}
-              className="bg-transparent text-sm text-gray-700 focus:outline-none w-full"
-            />
+              className="bg-transparent text-sm text-gray-700 focus:outline-none w-full" />
           </div>
-          {!isToday && (
-            <button
-              onClick={() => { setSelectedDate(getTodayIST()); fetchLog(getTodayIST()); }}
-              className="text-xs text-orange-500 font-medium px-3 py-2 border border-orange-200 rounded-xl hover:bg-orange-50 transition whitespace-nowrap"
-            >
-              Today
+          <button onClick={() => setShowFilters(p => !p)}
+            className={`flex items-center gap-1.5 px-4 py-2.5 rounded-2xl border text-sm font-medium transition ${
+              showFilters || activeFilters > 0
+                ? 'bg-orange-500 text-white border-orange-500'
+                : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-orange-300'
+            }`}>
+            <Filter className="w-4 h-4" />
+            Filters{activeFilters > 0 ? ` (${activeFilters})` : ''}
+          </button>
+          {(!isToday || activeFilters > 0) && (
+            <button onClick={resetFilters}
+              className="px-3 py-2.5 rounded-2xl border border-gray-200 text-xs text-gray-500 hover:bg-gray-50 transition whitespace-nowrap">
+              Reset
             </button>
           )}
         </div>
 
-        {/* Shift timing info */}
+        {/* Filter panel */}
+        {showFilters && (
+          <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 mb-3 space-y-3">
+            {/* Zone filter */}
+            <div>
+              <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-2 block">Zone / Team</label>
+              <div className="flex flex-wrap gap-2">
+                <button onClick={() => handleTeamChange('')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-medium border transition ${
+                    !selectedTeam ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-gray-600 border-gray-200 hover:border-orange-300'
+                  }`}>All Zones</button>
+                {zones.map(z => (
+                  <button key={z._id} onClick={() => handleTeamChange(z._id)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-medium border transition ${
+                      selectedTeam === z._id ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-gray-600 border-gray-200 hover:border-orange-300'
+                    }`}>{z.name}</button>
+                ))}
+              </div>
+            </div>
+
+            {/* Status filter */}
+            <div>
+              <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-2 block">Status</label>
+              <div className="flex flex-wrap gap-2">
+                {['', 'Early', 'On Time', 'Late', 'Absent'].map(s => (
+                  <button key={s} onClick={() => setSelectedStatus(s)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-medium border transition ${
+                      selectedStatus === s ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-gray-600 border-gray-200 hover:border-orange-300'
+                    }`}>{s || 'All'}</button>
+                ))}
+              </div>
+            </div>
+
+            {/* Date range */}
+            <div>
+              <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-2 block">Date Range</label>
+              <div className="flex gap-2 items-center">
+                <input type="date" value={rangeStart} max={getTodayIST()}
+                  onChange={e => setRangeStart(e.target.value)}
+                  className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-orange-400" />
+                <span className="text-gray-400 text-xs flex-shrink-0">to</span>
+                <input type="date" value={rangeEnd} max={getTodayIST()}
+                  onChange={e => setRangeEnd(e.target.value)}
+                  className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-orange-400" />
+                <button onClick={handleRangeApply} disabled={!rangeStart || !rangeEnd}
+                  className="px-3 py-2 bg-orange-500 text-white text-xs font-medium rounded-xl hover:bg-orange-600 transition disabled:opacity-40 flex-shrink-0">
+                  Apply
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Shift info */}
         {shiftInfo && (
           <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-2xl px-4 py-2.5 mb-4">
             <Info className="w-4 h-4 text-blue-500 flex-shrink-0" />
@@ -170,7 +272,7 @@ export default function TodaysLog() {
         )}
 
         <h3 className="text-gray-600 text-sm font-medium mb-4">
-          {isToday ? "Today's Log" : `Log for ${selectedDate}`} — sorted Early first · click for details
+          {employees.length} employees · sorted Early first · click for details
         </h3>
 
         {loading ? (
@@ -178,17 +280,14 @@ export default function TodaysLog() {
             {[1,2,3,4].map(i => <div key={i} className="h-16 bg-gray-100 rounded-xl"/>)}
           </div>
         ) : employees.length === 0 ? (
-          <p className="text-center text-gray-400 py-8 text-sm">No records for this date</p>
+          <p className="text-center text-gray-400 py-8 text-sm">No records for selected filters</p>
         ) : (
           <div className="space-y-2">
             {employees.map(emp => {
               const ci = colorIdx(emp.employeeName);
               return (
-                <button
-                  key={emp.employeeId}
-                  onClick={() => openDrillDown(emp.employeeId)}
-                  className="w-full flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-orange-50 hover:border-orange-200 border border-transparent transition cursor-pointer text-left"
-                >
+                <button key={emp.employeeId} onClick={() => openDrillDown(emp.employeeId)}
+                  className="w-full flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-orange-50 hover:border-orange-200 border border-transparent transition text-left">
                   <div className="flex items-center gap-3">
                     <div className={`w-10 h-10 rounded-full ${COLORS[ci]} flex items-center justify-center text-xs font-bold ${TEXT_COLORS[ci]} flex-shrink-0`}>
                       {initials(emp.employeeName)}
@@ -247,9 +346,7 @@ export default function TodaysLog() {
                 <div className="p-6 space-y-4">
                   {!drill.attendance ? (
                     <div className="text-center py-8">
-                      <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-3">
-                        <XCircle className="w-6 h-6 text-red-400"/>
-                      </div>
+                      <XCircle className="w-10 h-10 text-red-300 mx-auto mb-3"/>
                       <p className="font-semibold text-gray-700">Absent</p>
                       <p className="text-sm text-gray-400 mt-1">No attendance record for this date</p>
                     </div>
@@ -259,7 +356,7 @@ export default function TodaysLog() {
                         drill.attendance.isCheckedIn ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'
                       }`}>
                         <div>
-                          <p className="text-xs text-gray-500 mb-0.5">Current Status</p>
+                          <p className="text-xs text-gray-500 mb-0.5">Status</p>
                           <p className={`font-bold text-sm ${drill.attendance.isCheckedIn ? 'text-green-700' : 'text-gray-700'}`}>
                             {drill.attendance.isCheckedIn ? '● Active Right Now' : '✓ Checked Out'}
                           </p>

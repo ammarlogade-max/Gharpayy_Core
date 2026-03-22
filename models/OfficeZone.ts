@@ -14,7 +14,7 @@ const OfficeZoneSchema = new Schema<IOfficeZone>({
   latitude:     { type: Number },
   longitude:    { type: Number },
   radiusMeters: { type: Number },
-  weekOffDay:   { type: String, default: 'Tuesday' }, // Mon/Tue/Wed/Thu/Fri/Sat/Sun
+  weekOffDay:   { type: String, default: 'Tuesday' },
   createdAt:    { type: Date, default: Date.now },
 });
 

@@ -1,19 +1,35 @@
 import { redirect } from 'next/navigation';
 import { getAuthUser } from '@/lib/auth';
+import Header from '@/components/header';
+import Navigation from '@/components/navigation';
 import EmployeeNav from '@/components/employee-nav';
 import EmployeeDetail from '@/components/employee-detail';
 
 export default async function ClockPage() {
   const user = await getAuthUser();
   if (!user) redirect('/login');
-  if (user.role !== 'employee') redirect('/');
 
+  // Admin / Manager — show attendance detail with header and nav
+  if (user.role === 'admin' || user.role === 'manager') {
+    return (
+      <main className="min-h-screen bg-gray-50">
+        <Header />
+        <Navigation />
+        <div className="max-w-2xl mx-auto px-4 py-6 md:py-8">
+          <div className="mb-4">
+            <h1 className="text-xl font-bold text-gray-800">Clock In / Clock Out</h1>
+            <p className="text-sm text-gray-500 mt-1">Mark your own attendance</p>
+          </div>
+          <EmployeeDetail />
+        </div>
+      </main>
+    );
+  }
+
+  // Employee — show with employee nav
   return (
-    <div
-      className="min-h-screen bg-gray-50 pb-20 md:pb-0"
-      style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}
-    >
-      {/* Header */}
+    <div className="min-h-screen bg-gray-50 pb-20 md:pb-0"
+      style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="flex items-center px-4 py-3 max-w-lg mx-auto">
           <div className="flex items-center gap-2">
@@ -30,7 +46,6 @@ export default async function ClockPage() {
       </div>
 
       <div className="max-w-lg mx-auto px-4 py-6 space-y-4">
-        {/* Page title */}
         <div>
           <h1 className="text-2xl font-bold text-gray-800">My Attendance</h1>
           <p className="text-gray-500 text-sm mt-0.5">
@@ -40,34 +55,7 @@ export default async function ClockPage() {
             })}
           </p>
         </div>
-
-        {/* Full attendance detail — clock in/out, timeline, stats */}
         <EmployeeDetail />
-      </div>
-
-      {/* Mobile bottom nav */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-10">
-        <div className="flex items-center justify-around px-2 py-2">
-          {[
-            { label: 'Home',       href: '/home',           icon: '🏠' },
-            { label: 'Attendance', href: '/clock',          icon: '🕐' },
-            { label: 'Profile',    href: '/profile',        icon: '👤' },
-            { label: 'Notices',    href: '/notices',        icon: '🔔' },
-          ].map(tab => (
-            <a
-              key={tab.href}
-              href={tab.href}
-              className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl transition ${
-                tab.href === '/clock'
-                  ? 'text-orange-500'
-                  : 'text-gray-400'
-              }`}
-            >
-              <span className="text-lg">{tab.icon}</span>
-              <span className="text-[10px] font-medium">{tab.label}</span>
-            </a>
-          ))}
-        </div>
       </div>
     </div>
   );

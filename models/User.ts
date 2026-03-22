@@ -10,10 +10,9 @@ export interface IUser extends Document {
   profilePhoto?: string;
   officeZoneId?: mongoose.Types.ObjectId;
   isApproved?: boolean;
-  // Team hierarchy fields
-  managerId?: mongoose.Types.ObjectId;   // who this employee reports to
-  teamName?: string;                      // e.g. "Tech Team", "Sales Team"
-  department?: string;                    // e.g. "Engineering", "Operations"
+  managerId?: mongoose.Types.ObjectId;
+  teamName?: string;
+  department?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -28,7 +27,6 @@ const UserSchema = new Schema<IUser>({
   profilePhoto: { type: String },
   officeZoneId: { type: Schema.Types.ObjectId, ref: 'GpOfficeZone' },
   isApproved:   { type: Boolean, default: false },
-  // Hierarchy
   managerId:    { type: Schema.Types.ObjectId, ref: 'GpAttUser', default: null },
   teamName:     { type: String, default: '' },
   department:   { type: String, default: '' },

@@ -22,13 +22,15 @@ interface Employee {
 }
 
 const TYPE_STYLES = {
-  general: { bg: 'bg-blue-50',   border: 'border-blue-200',  badge: 'bg-blue-100 text-blue-700',   icon: <Info className="w-4 h-4 text-blue-500" />,      label: 'General'  },
-  warning: { bg: 'bg-yellow-50', border: 'border-yellow-200',badge: 'bg-yellow-100 text-yellow-700',icon: <AlertTriangle className="w-4 h-4 text-yellow-500"/>, label: 'Warning' },
-  urgent:  { bg: 'bg-red-50',    border: 'border-red-200',   badge: 'bg-red-100 text-red-700',     icon: <Zap className="w-4 h-4 text-red-500" />,          label: 'Urgent'  },
+  general: { bg: 'bg-blue-50',   border: 'border-blue-200',   badge: 'bg-blue-100 text-blue-700',    icon: <Info className="w-4 h-4 text-blue-500" />,           label: 'General' },
+  warning: { bg: 'bg-yellow-50', border: 'border-yellow-200', badge: 'bg-yellow-100 text-yellow-700', icon: <AlertTriangle className="w-4 h-4 text-yellow-500" />, label: 'Warning' },
+  urgent:  { bg: 'bg-red-50',    border: 'border-red-200',    badge: 'bg-red-100 text-red-700',       icon: <Zap className="w-4 h-4 text-red-500" />,             label: 'Urgent'  },
 };
 
 function timeAgo(dateStr: string) {
-  const diff = Date.now() - new Date(dateStr).getTime();
+  const now = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
+  const created = new Date(new Date(dateStr).getTime() + 5.5 * 60 * 60 * 1000);
+  const diff = now.getTime() - created.getTime();
   const m = Math.floor(diff / 60000);
   const h = Math.floor(m / 60);
   const d = Math.floor(h / 24);
@@ -46,14 +48,14 @@ export default function NoticesManager() {
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
 
-  // Form state
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
   const [type, setType] = useState<'general' | 'warning' | 'urgent'>('general');
   const [targetId, setTargetId] = useState('');
 
   const fetchNotices = () => {
-    fetch('/api/notices', { cache: 'no-store' })
+    // FIX: was /api/notices — correct is /api/notice
+    fetch('/api/notice', { cache: 'no-store' })
       .then(r => r.json())
       .then(d => { if (d.notices) setNotices(d.notices); })
       .catch(() => {})
@@ -73,7 +75,8 @@ export default function NoticesManager() {
     if (!title.trim() || !message.trim()) return;
     setSubmitting(true);
     try {
-      const r = await fetch('/api/notices', {
+      // FIX: was /api/notices — correct is /api/notice
+      const r = await fetch('/api/notice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title, message, type, targetId: targetId || null }),
@@ -91,7 +94,8 @@ export default function NoticesManager() {
   const handleDelete = async (id: string) => {
     setDeleting(id);
     try {
-      await fetch('/api/notices', {
+      // FIX: was /api/notices — correct is /api/notice
+      await fetch('/api/notice', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id }),
@@ -131,9 +135,9 @@ export default function NoticesManager() {
       {/* Stats */}
       <div className="grid grid-cols-3 gap-3 mb-6">
         {[
-          { label: 'General', count: generalCount, bg: 'bg-blue-50',    text: 'text-blue-700',    border: 'border-blue-100' },
-          { label: 'Warnings', count: warningCount, bg: 'bg-yellow-50', text: 'text-yellow-700',  border: 'border-yellow-100' },
-          { label: 'Urgent',  count: urgentCount,  bg: 'bg-red-50',     text: 'text-red-700',     border: 'border-red-100' },
+          { label: 'General',  count: generalCount, bg: 'bg-blue-50',   text: 'text-blue-700',   border: 'border-blue-100'   },
+          { label: 'Warnings', count: warningCount, bg: 'bg-yellow-50', text: 'text-yellow-700', border: 'border-yellow-100' },
+          { label: 'Urgent',   count: urgentCount,  bg: 'bg-red-50',    text: 'text-red-700',    border: 'border-red-100'    },
         ].map(s => (
           <div key={s.label} className={`${s.bg} border ${s.border} rounded-2xl p-3 text-center`}>
             <div className={`text-2xl font-bold ${s.text}`}>{s.count}</div>
@@ -144,46 +148,41 @@ export default function NoticesManager() {
 
       {/* Create form modal */}
       {showForm && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setShowForm(false)}>
-          <div className="bg-white rounded-3xl border border-gray-200 p-6 w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+          onClick={() => setShowForm(false)}>
+          <div className="bg-white rounded-3xl border border-gray-200 p-6 w-full max-w-md shadow-2xl"
+            onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-lg font-bold text-gray-800">Create Notice</h3>
-              <button onClick={() => setShowForm(false)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 transition">
+              <button onClick={() => setShowForm(false)}
+                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 transition">
                 <X className="w-4 h-4 text-gray-500" />
               </button>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Type selector */}
               <div>
                 <label className="text-xs font-medium text-gray-600 mb-2 block">Type</label>
                 <div className="grid grid-cols-3 gap-2">
                   {(['general', 'warning', 'urgent'] as const).map(t => (
-                    <button
-                      key={t} type="button"
-                      onClick={() => setType(t)}
+                    <button key={t} type="button" onClick={() => setType(t)}
                       className={`py-2 px-3 rounded-xl text-xs font-semibold border transition capitalize ${
                         type === t
                           ? t === 'general' ? 'bg-blue-500 text-white border-blue-500'
                             : t === 'warning' ? 'bg-yellow-500 text-white border-yellow-500'
                             : 'bg-red-500 text-white border-red-500'
                           : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
-                      }`}
-                    >
+                      }`}>
                       {t}
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* Target */}
               <div>
                 <label className="text-xs font-medium text-gray-600 mb-2 block">Send To</label>
-                <select
-                  value={targetId}
-                  onChange={e => setTargetId(e.target.value)}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
-                >
+                <select value={targetId} onChange={e => setTargetId(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400">
                   <option value="">All Employees</option>
                   {employees.map(emp => (
                     <option key={emp._id} value={emp._id}>{emp.fullName}</option>
@@ -191,36 +190,22 @@ export default function NoticesManager() {
                 </select>
               </div>
 
-              {/* Title */}
               <div>
                 <label className="text-xs font-medium text-gray-600 mb-2 block">Title</label>
-                <input
-                  value={title}
-                  onChange={e => setTitle(e.target.value)}
-                  placeholder="Notice title..."
-                  required
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
-                />
+                <input value={title} onChange={e => setTitle(e.target.value)}
+                  placeholder="Notice title..." required
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400" />
               </div>
 
-              {/* Message */}
               <div>
                 <label className="text-xs font-medium text-gray-600 mb-2 block">Message</label>
-                <textarea
-                  value={message}
-                  onChange={e => setMessage(e.target.value)}
-                  placeholder="Write your notice or warning here..."
-                  required
-                  rows={4}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 resize-none"
-                />
+                <textarea value={message} onChange={e => setMessage(e.target.value)}
+                  placeholder="Write your notice here..." required rows={4}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 resize-none" />
               </div>
 
-              <button
-                type="submit"
-                disabled={submitting}
-                className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold py-3 rounded-xl transition disabled:opacity-60"
-              >
+              <button type="submit" disabled={submitting}
+                className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold py-3 rounded-xl transition disabled:opacity-60">
                 {submitting ? 'Sending...' : 'Send Notice'}
               </button>
             </form>
@@ -265,11 +250,8 @@ export default function NoticesManager() {
                       <p className="text-gray-400 text-[10px] mt-2">By {notice.createdByName}</p>
                     </div>
                   </div>
-                  <button
-                    onClick={() => handleDelete(notice._id)}
-                    disabled={deleting === notice._id}
-                    className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-100 text-gray-400 hover:text-red-500 transition disabled:opacity-40"
-                  >
+                  <button onClick={() => handleDelete(notice._id)} disabled={deleting === notice._id}
+                    className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-100 text-gray-400 hover:text-red-500 transition disabled:opacity-40">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
