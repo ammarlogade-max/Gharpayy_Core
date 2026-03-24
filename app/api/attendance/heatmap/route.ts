@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/db';
 import Attendance from '@/models/Attendance';
 import User from '@/models/User';
 import OfficeZone from '@/models/OfficeZone';
 import { getAuthUser } from '@/lib/auth';
+import { autoCloseMissedClockOut, deriveStatusFromAttendance, getShiftRules } from '@/lib/attendance-utils';
 
 const IST_TIME_OPTIONS: Intl.DateTimeFormatOptions = {
   hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata',
@@ -59,34 +60,54 @@ export async function GET(req: NextRequest) {
     const week   = searchParams.get('week');
     const date   = searchParams.get('date');
     const teamId = searchParams.get('team');
+    const managerId = searchParams.get('manager');
+    const statusFilter = searchParams.get('status');
+    const dateFrom = searchParams.get('dateFrom');
+    const dateTo = searchParams.get('dateTo');
 
     await connectDB();
+    await autoCloseMissedClockOut();
 
     const isManager = user.role === 'admin' || user.role === 'manager';
     const todayStr  = getTodayIST();
     const logDate   = date || todayStr;
 
-    // Get week off day from DB
-    const zone         = await OfficeZone.findOne({}).lean() as any;
+    // Get week off day + shift rules from DB
+    const zone = await OfficeZone.findOne({}).lean() as any;
+    const rules = await getShiftRules();
     const weekOffDay   = zone?.weekOffDay || 'Tuesday';
     const weekOffLabel = WEEK_OFF_LABEL[weekOffDay] || 'Tue';
 
     const shiftInfo = {
-      earlyBefore:  '9:00 AM',
-      onTimeTill:   '9:15 AM',
-      lateAfter:    '9:15 AM',
+      earlyBefore:  rules.shiftStart,
+      onTimeTill:   `${rules.shiftStart} + ${rules.graceMinutes}m`,
+      lateAfter:    `${rules.shiftStart} + ${rules.graceMinutes}m`,
+      shiftStart: rules.shiftStart,
+      shiftEnd: rules.shiftEnd,
+      graceMinutes: rules.graceMinutes,
       weekOffDay,
       weekOffLabel,
     };
 
     // Determine date range
     let dates: string[] = [];
-    if (date)      dates = [date];
+    if (dateFrom && dateTo) {
+      const start = new Date(dateFrom);
+      const end = new Date(dateTo);
+      if (!Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime()) && start <= end) {
+        const d = new Date(start);
+        while (d <= end) {
+          dates.push(d.toISOString().split('T')[0]);
+          d.setDate(d.getDate() + 1);
+        }
+      }
+    } else if (date)      dates = [date];
     else if (week) dates = getWeekDatesFromStr(week);
 
     if (isManager) {
       const userQuery: any = {};
       if (teamId) userQuery.officeZoneId = teamId;
+      if (managerId) userQuery.managerId = managerId;
 
       const users = await User.find(userQuery, 'fullName email role officeZoneId isApproved')
         .populate('officeZoneId', 'name')
@@ -119,10 +140,11 @@ export async function GET(req: NextRequest) {
         date: logDate,
       }).lean() as any[];
 
-      const todayLog = users
+      let todayLog = users
         .map((u: any) => {
           const att       = logAtt.find(a => a.employeeId.toString() === u._id.toString());
           const firstSess = att?.sessions?.[0];
+          const derived = att ? deriveStatusFromAttendance(att, rules) : { dayStatus: 'Absent', lateByMins: 0, earlyByMins: 0 };
           return {
             employeeId:    u._id.toString(),
             employeeName:  u.fullName,
@@ -130,18 +152,68 @@ export async function GET(req: NextRequest) {
             team:          (u.officeZoneId as any)?.name || 'No Zone',
             checkInTime:   firstSess?.checkIn ? fmtTime(new Date(firstSess.checkIn)) : null,
             isCheckedIn:   att?.isCheckedIn || false,
-            dayStatus:     att?.dayStatus || 'Absent',
+            workMode:      att?.workMode || (att?.isOnBreak ? 'Break' : att?.isInField ? 'Field' : att?.isCheckedIn ? 'Present' : 'Absent'),
+            dayStatus:     derived.dayStatus || 'Absent',
             totalWorkMins: att?.totalWorkMins || 0,
+            lateByMins:    derived.lateByMins || 0,
+            earlyByMins:   derived.earlyByMins || 0,
           };
         })
         .sort((a, b) => statusSortOrder(a.dayStatus) - statusSortOrder(b.dayStatus));
 
+      if (statusFilter && statusFilter !== 'all') {
+        todayLog = todayLog.filter((e: any) => e.dayStatus === statusFilter || e.workMode === statusFilter);
+      }
+
       const present = todayLog.filter((e: any) => e.dayStatus !== 'Absent').length;
 
-      return NextResponse.json({ heatmap, todayLog, total: users.length, present, shiftInfo });
+      const yesterday = new Date(logDate);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yDate = yesterday.toISOString().split('T')[0];
+      const yAtt = await Attendance.find({ employeeId: { $in: employeeIds }, date: yDate }).lean() as any[];
+      const yPresent = yAtt.filter((a: any) => (a.dayStatus || 'Absent') !== 'Absent').length;
+
+      // 7-day trend and team comparison
+      const trendDates: string[] = [];
+      const cursor = new Date(logDate);
+      cursor.setDate(cursor.getDate() - 6);
+      for (let i = 0; i < 7; i++) {
+        trendDates.push(new Date(cursor).toISOString().split('T')[0]);
+        cursor.setDate(cursor.getDate() + 1);
+      }
+      const trendAtt = await Attendance.find({ employeeId: { $in: employeeIds }, date: { $in: trendDates } }).lean() as any[];
+      const lateTrend = trendDates.map(d => ({
+        date: d,
+        late: trendAtt.filter((a: any) => a.date === d && a.dayStatus === 'Late').length,
+        present: trendAtt.filter((a: any) => a.date === d && a.dayStatus !== 'Absent').length,
+      }));
+      const teamComparison = Object.values(
+        users.reduce((acc: any, u: any) => {
+          const team = (u.officeZoneId as any)?.name || 'No Zone';
+          if (!acc[team]) acc[team] = { team, total: 0, present: 0, late: 0 };
+          acc[team].total += 1;
+          const a = logAtt.find((x: any) => x.employeeId.toString() === u._id.toString());
+          const status = a?.dayStatus || 'Absent';
+          if (status !== 'Absent') acc[team].present += 1;
+          if (status === 'Late') acc[team].late += 1;
+          return acc;
+        }, {})
+      );
+
+      return NextResponse.json({
+        heatmap,
+        todayLog,
+        total: users.length,
+        present,
+        shiftInfo,
+        yesterdayPresent: yPresent,
+        presentDelta: present - yPresent,
+        lateTrend,
+        teamComparison,
+      });
 
     } else {
-      // Employee — own data only
+      // Employee €” own data only
       const attQuery: any = { employeeId: user.id };
       if (dates.length > 0) attQuery.date = { $in: dates };
 
@@ -161,3 +233,4 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
 }
+

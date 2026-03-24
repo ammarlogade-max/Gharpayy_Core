@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useEffect, useState } from 'react';
 import { Bell, AlertTriangle, Info, Zap, ChevronDown, ChevronUp } from 'lucide-react';
 
@@ -57,7 +57,7 @@ export default function NoticesEmployee() {
   const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
-    // FIXED: was /api/notices (wrong) — correct route is /api/notice
+    // FIXED: was /api/notices (wrong) €” correct route is /api/notice
     fetch('/api/notice', { cache: 'no-store' })
       .then(r => r.json())
       .then(d => {
@@ -173,3 +173,4 @@ export default function NoticesEmployee() {
     </div>
   );
 }
+

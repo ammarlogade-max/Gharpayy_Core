@@ -15,6 +15,7 @@ interface CCData {
   taskSummary: { blocked: number; overdue: number; total: number; completed: number; };
   pendingApprovals: number;
   needAction: { type: string; count: number; label: string; }[];
+  compare?: { yesterdayPresent: number; presentDelta: number };
   date: string;
 }
 
@@ -120,6 +121,11 @@ export default function CommandCenter() {
             {needAction.length > 0 && (
               <div className="mt-2 text-xs" style={{ color: '#6b7280' }}>
                 {needAction.length} item{needAction.length > 1 ? 's' : ''} need attention - {pendingApprovals} approvals pending
+              </div>
+            )}
+            {typeof data.compare?.presentDelta === 'number' && (
+              <div className="mt-1 text-xs" style={{ color: data.compare.presentDelta < 0 ? '#ef4444' : '#10b981' }}>
+                Attendance vs yesterday: {data.compare.presentDelta > 0 ? '+' : ''}{data.compare.presentDelta}
               </div>
             )}
           </div>

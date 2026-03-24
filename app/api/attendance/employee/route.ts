@@ -3,10 +3,7 @@ import { connectDB } from '@/lib/db';
 import Attendance from '@/models/Attendance';
 import User from '@/models/User';
 import { getAuthUser } from '@/lib/auth';
-
-function getISTDate() {
-  return new Date(Date.now() + 5.5 * 60 * 60 * 1000).toISOString().split('T')[0];
-}
+import { autoCloseMissedClockOut, getISTDateStr, recomputeAttendanceTotals } from '@/lib/attendance-utils';
 
 function fmtTime(d: Date) {
   return new Date(d.getTime() + 5.5 * 60 * 60 * 1000)
@@ -38,22 +35,51 @@ export async function GET(req: NextRequest) {
     if (!employeeId) return NextResponse.json({ error: 'Employee ID required' }, { status: 400 });
 
     await connectDB();
+    await autoCloseMissedClockOut(employeeId);
 
     const emp = await User.findById(employeeId);
     if (!emp) return NextResponse.json({ error: 'Employee not found' }, { status: 404 });
 
-    const today = getISTDate();
+    const today = getISTDateStr();
     const att = await Attendance.findOne({ employeeId, date: today });
+    const start = new Date(today);
+    start.setDate(start.getDate() - 29);
+    const startDate = start.toISOString().split('T')[0];
+    const monthRows = await Attendance.find({ employeeId, date: { $gte: startDate, $lte: today } }).lean() as any[];
 
     const timeline: { time: string; label: string; type: string }[] = [];
     if (att) {
+      recomputeAttendanceTotals(att);
       for (const s of att.sessions) {
-        timeline.push({ time: fmtTime(new Date(s.checkIn)), label: 'Clocked In', type: 'checkin' });
-        if (s.checkOut) timeline.push({ time: fmtTime(new Date(s.checkOut)), label: 'Clocked Out', type: 'checkout' });
+        if (s.type === 'break') {
+          timeline.push({ time: fmtTime(new Date(s.checkIn)), label: 'Break Started', type: 'break_start' });
+          if (s.checkOut) timeline.push({ time: fmtTime(new Date(s.checkOut)), label: 'Break Ended', type: 'break_end' });
+        } else if (s.type === 'field') {
+          timeline.push({ time: fmtTime(new Date(s.checkIn)), label: 'Field Exit', type: 'field_exit' });
+          if (s.checkOut) timeline.push({ time: fmtTime(new Date(s.checkOut)), label: 'Field Return', type: 'field_return' });
+        } else {
+          timeline.push({ time: fmtTime(new Date(s.checkIn)), label: 'Clocked In', type: 'checkin' });
+          if (s.checkOut) timeline.push({ time: fmtTime(new Date(s.checkOut)), label: 'Clocked Out', type: 'checkout' });
+        }
       }
     }
 
     const lastSession = att?.sessions?.[att.sessions.length - 1];
+    const lateDays = monthRows.filter((r: any) => r.dayStatus === 'Late').length;
+    const earlyDays = monthRows.filter((r: any) => r.dayStatus === 'Early').length;
+    const onTimeDays = monthRows.filter((r: any) => r.dayStatus === 'On Time').length;
+    const presentDays = monthRows.filter((r: any) => r.dayStatus !== 'Absent').length;
+    const totalWorkMins30 = monthRows.reduce((s: number, r: any) => s + Number(r.totalWorkMins || 0), 0);
+    const avgWorkMins = monthRows.length ? Math.round(totalWorkMins30 / monthRows.length) : 0;
+    const hourlyDist = monthRows.reduce((acc: any, r: any) => {
+      const first = r.sessions?.find((s: any) => (s.type || 'work') !== 'break');
+      if (first?.checkIn) {
+        const d = new Date(first.checkIn);
+        const hour = d.toLocaleTimeString('en-IN', { hour: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' });
+        acc[hour] = (acc[hour] || 0) + 1;
+      }
+      return acc;
+    }, {});
 
     return NextResponse.json({
       employee: {
@@ -68,10 +94,25 @@ export async function GET(req: NextRequest) {
         firstCheckIn: att.sessions?.[0]?.checkIn?.toISOString() || null,
         lastCheckOut: lastSession?.checkOut?.toISOString() || null,
         totalWorkMins: att.totalWorkMins,
+        totalBreakMins: att.totalBreakMins || 0,
         totalWorkFormatted: fmtMins(att.totalWorkMins),
         sessions: att.sessions.length,
+        lateByMins: att.lateByMins || 0,
+        earlyByMins: att.earlyByMins || 0,
         timeline,
       } : null,
+      analytics: {
+        windowDays: 30,
+        presentDays,
+        lateDays,
+        earlyDays,
+        onTimeDays,
+        avgWorkMins,
+        onTimeRate: presentDays ? Math.round(((onTimeDays + earlyDays) / presentDays) * 100) : 0,
+        lateRate: presentDays ? Math.round((lateDays / presentDays) * 100) : 0,
+        earlyRate: presentDays ? Math.round((earlyDays / presentDays) * 100) : 0,
+        arrivalPattern: hourlyDist,
+      },
     });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });

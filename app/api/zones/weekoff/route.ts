@@ -1,11 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/db';
 import OfficeZone from '@/models/OfficeZone';
 import { getAuthUser } from '@/lib/auth';
 
 const VALID_DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 
-// GET — return current week off day
+// GET €” return current week off day
 export async function GET() {
   try {
     await connectDB();
@@ -16,7 +16,7 @@ export async function GET() {
   }
 }
 
-// POST — admin sets week off day
+// POST €” admin sets week off day
 export async function POST(req: NextRequest) {
   try {
     const user = await getAuthUser();

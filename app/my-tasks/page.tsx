@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useEffect, useState } from 'react';
 import EmployeeSidebar from '@/components/employee-sidebar';
 import { CheckCircle2, Clock, AlertTriangle } from 'lucide-react';
@@ -50,7 +50,7 @@ export default function MyTasksPage() {
           <div style={card} className="p-5">
             <h1 className="text-2xl font-bold text-gray-900 mb-1">My Tasks</h1>
             <div className="text-xs mb-4" style={{ color: '#6b7280' }}>
-              {summary.total || 0} tasks · {summary.completed || 0} done · {summary.blocked || 0} blocked
+              {summary.total || 0} tasks  -  {summary.completed || 0} done  -  {summary.blocked || 0} blocked
             </div>
             <div className="grid grid-cols-4 gap-2">
               {[
@@ -96,7 +96,7 @@ export default function MyTasksPage() {
                     <div className="flex items-center justify-between mt-3 pt-2 border-t" style={{ borderColor: '#f9fafb' }}>
                       <div className="text-[10px]" style={{ color: '#6b7280' }}>
                         From {task.assignedByName}
-                        {task.dueDate && <span> · Due {new Date(task.dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</span>}
+                        {task.dueDate && <span>  -  Due {new Date(task.dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</span>}
                       </div>
                       <select value={task.status} onChange={e => updateStatus(task._id, e.target.value)} disabled={updating === task._id}
                         className="text-[10px] py-1 px-2 rounded-lg focus:outline-none disabled:opacity-50"
@@ -118,6 +118,7 @@ export default function MyTasksPage() {
     </div>
   );
 }
+
 
 
 

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useEffect, useState } from 'react';
 import { Bell, Plus, Trash2, X, Users, User, Zap, AlertTriangle, Info } from 'lucide-react';
 
@@ -78,7 +78,7 @@ export default function NoticesPage({ isAdmin = true }: { isAdmin?: boolean }) {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Notices</h1>
             <div className="text-xs mt-1" style={{ color: '#6b7280' }}>
-              {notices.length} total · {counts.warning + counts.urgent} alerts
+              {notices.length} total  -  {counts.warning + counts.urgent} alerts
             </div>
           </div>
           {isAdmin && (
@@ -141,7 +141,7 @@ export default function NoticesPage({ isAdmin = true }: { isAdmin?: boolean }) {
                       <div className="text-sm font-semibold text-gray-900 mb-1">{n.title}</div>
                       <div className="text-xs leading-relaxed" style={{ color: '#6b7280' }}>{n.message}</div>
                       <div className="text-[10px] mt-2" style={{ color: '#9ca3af' }}>
-                        By {n.createdByName} · {n.readBy?.length || 0} read
+                        By {n.createdByName}  -  {n.readBy?.length || 0} read
                       </div>
                     </div>
                     {isAdmin && (
@@ -206,5 +206,6 @@ export default function NoticesPage({ isAdmin = true }: { isAdmin?: boolean }) {
     </div>
   );
 }
+
 
 

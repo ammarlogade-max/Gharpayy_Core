@@ -1,41 +1,93 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/db';
 import Attendance from '@/models/Attendance';
+import User from '@/models/User';
 import { getAuthUser } from '@/lib/auth';
-
-function getISTDate() {
-  const now = new Date();
-  const ist = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
-  return ist.toISOString().split('T')[0];
-}
+import { autoCloseMissedClockOut, getISTDateStr, recomputeAttendanceTotals } from '@/lib/attendance-utils';
+import { notifyDailySummary } from '@/lib/system-notifications';
 
 export async function POST(req: NextRequest) {
   try {
     const user = await getAuthUser();
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    if (user.id === 'admin') return NextResponse.json({ error: 'Admin cannot use attendance' }, { status: 400 });
+    if (user.role === 'admin') return NextResponse.json({ error: 'Admin cannot use attendance' }, { status: 400 });
 
-    await req.json().catch(() => ({}));
+    const body = await req.json().catch(() => ({}));
+    const type = body?.type as string | undefined;
     await connectDB();
+    await autoCloseMissedClockOut(user.id);
 
-    const date = getISTDate();
+    const date = getISTDateStr();
     const att = await Attendance.findOne({ employeeId: user.id, date });
 
-    if (!att || !att.isCheckedIn) return NextResponse.json({ error: 'Not checked in' }, { status: 400 });
+    if (!att) return NextResponse.json({ error: 'No attendance record for today' }, { status: 400 });
 
     const now = new Date();
     const lastSession = att.sessions[att.sessions.length - 1];
-    if (!lastSession.checkOut) {
+    let finalClockOut = false;
+
+    const closeOpen = () => {
+      if (!lastSession || lastSession.checkOut) return 0;
+      const mins = Math.max(0, Math.floor((now.getTime() - new Date(lastSession.checkIn).getTime()) / 60000));
       lastSession.checkOut = now;
-      lastSession.workMinutes = Math.floor((now.getTime() - lastSession.checkIn.getTime()) / 60000);
+      lastSession.minutes = mins;
+      if (lastSession.type !== 'break') lastSession.workMinutes = mins;
+      return mins;
+    };
+
+    if (type === 'break_start') {
+      if (!att.isCheckedIn) return NextResponse.json({ error: 'Clock in first to start break' }, { status: 400 });
+      closeOpen();
+      att.sessions.push({ checkIn: now, checkOut: null, type: 'break', minutes: 0, workMinutes: 0, lat: body?.lat || null, lng: body?.lng || null });
+      att.isCheckedIn = false;
+      att.isOnBreak = true;
+      att.isInField = false;
+      att.workMode = 'Break';
+    } else if (type === 'field_exit') {
+      if (!att.isCheckedIn) return NextResponse.json({ error: 'Clock in first to start field visit' }, { status: 400 });
+      closeOpen();
+      att.sessions.push({ checkIn: now, checkOut: null, type: 'field', minutes: 0, workMinutes: 0, lat: body?.lat || null, lng: body?.lng || null });
+      att.isCheckedIn = false;
+      att.isOnBreak = false;
+      att.isInField = true;
+      att.workMode = 'Field';
+    } else {
+      if (att.isOnBreak) return NextResponse.json({ error: 'End break first before clocking out' }, { status: 400 });
+      if (att.isInField) return NextResponse.json({ error: 'Return from field first before clocking out' }, { status: 400 });
+      if (!att.isCheckedIn) return NextResponse.json({ error: 'Not checked in' }, { status: 400 });
+      closeOpen();
+      att.isCheckedIn = false;
+      att.isOnBreak = false;
+      att.isInField = false;
+      att.workMode = 'Present';
+      finalClockOut = true;
     }
 
-    att.isCheckedIn = false;
-    att.totalWorkMins = att.sessions.reduce((sum: number, s: any) => sum + (s.workMinutes || 0), 0);
+    recomputeAttendanceTotals(att);
     att.markModified('sessions');
     await att.save();
 
-    return NextResponse.json({ ok: true, checkOutTime: now.toISOString(), totalWorkMins: att.totalWorkMins });
+    if (finalClockOut) {
+      const emp = await User.findById(user.id, 'fullName').lean() as any;
+      await notifyDailySummary({
+        employeeId: user.id,
+        employeeName: emp?.fullName || user.fullName || 'Employee',
+        date,
+        totalWorkMins: Number(att.totalWorkMins || 0),
+        totalBreakMins: Number(att.totalBreakMins || 0),
+        dayStatus: String(att.dayStatus || 'Absent'),
+        lateByMins: Number(att.lateByMins || 0),
+        earlyByMins: Number(att.earlyByMins || 0),
+      });
+    }
+
+    return NextResponse.json({
+      ok: true,
+      checkOutTime: now.toISOString(),
+      totalWorkMins: att.totalWorkMins,
+      totalBreakMins: att.totalBreakMins || 0,
+      workMode: att.workMode,
+    });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });
   }

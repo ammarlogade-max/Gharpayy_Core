@@ -6,6 +6,10 @@ export interface IOfficeZone extends Document {
   longitude?: number;
   radiusMeters?: number;
   weekOffDay?: string;
+  shiftStart?: string;
+  shiftEnd?: string;
+  graceMinutes?: number;
+  earlyGraceMinutes?: number;
   createdAt: Date;
 }
 
@@ -15,6 +19,10 @@ const OfficeZoneSchema = new Schema<IOfficeZone>({
   longitude:    { type: Number },
   radiusMeters: { type: Number },
   weekOffDay:   { type: String, default: 'Tuesday' },
+  shiftStart:   { type: String, default: '10:00' },
+  shiftEnd:     { type: String, default: '19:00' },
+  graceMinutes: { type: Number, default: 15 },
+  earlyGraceMinutes: { type: Number, default: 0 },
   createdAt:    { type: Date, default: Date.now },
 });
 

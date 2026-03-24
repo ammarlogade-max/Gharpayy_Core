@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useEffect, useState, useRef } from 'react';
 import { Camera, CheckCircle, AlertCircle, User } from 'lucide-react';
 import EmployeeNav from '@/components/employee-nav';
@@ -139,7 +139,7 @@ export default function ProfilePage() {
                 <input ref={fileRef} type="file" accept="image/*" onChange={handlePhotoChange} className="hidden" />
               </div>
 
-              {/* Save photo button — only shows when new photo selected */}
+              {/* Save photo button €” only shows when new photo selected */}
               {photoPreview && (
                 <button
                   onClick={handleSavePhoto}

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useEffect, useState } from 'react';
 import { Users, ChevronDown, ChevronRight, Edit2, Check, X, AlertCircle, MapPin, UserCheck } from 'lucide-react';
 
@@ -171,7 +171,7 @@ export default function OrgStructure() {
                 <select value={editData.managerId}
                   onChange={e => setEditData(p => ({ ...p, managerId: e.target.value }))}
                   className="w-full border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-orange-400">
-                  <option value="">— No Manager —</option>
+                  <option value="">€” No Manager €”</option>
                   {availableManagers.map(mgr => (
                     <option key={mgr._id} value={mgr._id}>{mgr.fullName} ({mgr.role})</option>
                   ))}
@@ -213,14 +213,14 @@ export default function OrgStructure() {
             <h2 className="text-xl font-bold text-gray-800">Org Structure</h2>
             <p className="text-xs text-gray-700 mt-0.5">
               {groupedByZone
-                ? 'Employees grouped by zone · Assign team names and departments below'
+                ? 'Employees grouped by zone  -  Assign team names and departments below'
                 : 'Employees grouped by manager'}
             </p>
           </div>
         </div>
         {groupedByZone && (
           <div className="bg-blue-50 border border-blue-100 rounded-2xl px-4 py-3 text-xs text-blue-700">
-            No managers assigned yet — showing employees by zone. Click ✏️ on any employee to assign team and department info.
+            No managers assigned yet €” showing employees by zone. Click œï¸ on any employee to assign team and department info.
           </div>
         )}
       </div>

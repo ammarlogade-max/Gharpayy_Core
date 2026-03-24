@@ -13,6 +13,13 @@ function fmtClock(secs: number) {
 function fmtTime(iso: string) {
   return new Date(iso).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' });
 }
+function fmtHHMMtoISTLabel(v?: string) {
+  const [hh, mm] = String(v || '').split(':').map(Number);
+  if (Number.isNaN(hh) || Number.isNaN(mm)) return v || '10:00';
+  const h12 = hh % 12 || 12;
+  const ampm = hh >= 12 ? 'PM' : 'AM';
+  return `${h12}:${String(mm).padStart(2, '0')} ${ampm}`;
+}
 
 const TIMELINE_COLOR: Record<string, string> = {
   checkin: '#10b981', checkout: '#374151', break_start: '#f59e0b', break_end: '#6366f1', field_exit: '#3b82f6', field_return: '#10b981',
@@ -124,6 +131,11 @@ export default function MyAttendance() {
                   }}>{att.dayStatus}</span>
               )}
             </div>
+            {(att?.lateByMins > 0 || att?.earlyByMins > 0) && (
+              <div className="text-[11px] mb-2" style={{ color: '#6b7280' }}>
+                {att.lateByMins > 0 ? `Late by ${att.lateByMins} min` : `Early by ${att.earlyByMins} min`}
+              </div>
+            )}
 
             {/* Big Timer */}
             <div className="text-center my-6">
@@ -227,7 +239,9 @@ export default function MyAttendance() {
                 <div className="w-2.5 h-2.5 rounded-full mt-1 flex-shrink-0" style={{ background: '#e5e7eb' }}/>
                 <div>
                   <div className="text-xs font-medium" style={{ color: '#6b7280' }}>Shift expected</div>
-                  <div className="text-[10px]" style={{ color: '#9ca3af' }}>10:00 AM</div>
+                  <div className="text-[10px]" style={{ color: '#9ca3af' }}>
+                    {fmtHHMMtoISTLabel(att?.shiftRules?.shiftStart)} IST (grace {att?.shiftRules?.graceMinutes ?? 15}m)
+                  </div>
                 </div>
               </div>
 
@@ -246,6 +260,30 @@ export default function MyAttendance() {
           )}
 
           {/* March Attendance mini heatmap placeholder */}
+          {att?.weeklySummary && (
+            <div style={card} className="p-5">
+              <h2 className="text-sm font-bold text-gray-900 mb-3">Weekly Summary</h2>
+              <div className="grid grid-cols-4 gap-3">
+                <div className="p-3 rounded-xl text-center" style={{ background: '#f9fafb', border: '1px solid #e5e7eb' }}>
+                  <div className="text-xl font-bold" style={{ color: '#10b981' }}>{att.weeklySummary.presentDays || 0}</div>
+                  <div className="text-[10px]" style={{ color: '#6b7280' }}>Present</div>
+                </div>
+                <div className="p-3 rounded-xl text-center" style={{ background: '#f9fafb', border: '1px solid #e5e7eb' }}>
+                  <div className="text-xl font-bold" style={{ color: '#f59e0b' }}>{att.weeklySummary.lateDays || 0}</div>
+                  <div className="text-[10px]" style={{ color: '#6b7280' }}>Late</div>
+                </div>
+                <div className="p-3 rounded-xl text-center" style={{ background: '#f9fafb', border: '1px solid #e5e7eb' }}>
+                  <div className="text-xl font-bold" style={{ color: '#10b981' }}>{att.weeklySummary.earlyDays || 0}</div>
+                  <div className="text-[10px]" style={{ color: '#6b7280' }}>Early</div>
+                </div>
+                <div className="p-3 rounded-xl text-center" style={{ background: '#f9fafb', border: '1px solid #e5e7eb' }}>
+                  <div className="text-xl font-bold text-gray-900">{att.weeklySummary.totalWorkFormatted || '0m'}</div>
+                  <div className="text-[10px]" style={{ color: '#6b7280' }}>Hours</div>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div style={card} className="p-5">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-bold text-gray-900">

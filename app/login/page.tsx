@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, AlertCircle } from 'lucide-react';
@@ -55,7 +55,7 @@ export default function LoginPage() {
           <span className="text-2xl font-bold text-orange-500">Gharpayy</span>
         </div>
         <div className="bg-white rounded-3xl border border-gray-200 shadow-sm p-8">
-          <h2 className="text-xl font-bold text-gray-800 mb-1">Welcome back 👋</h2>
+          <h2 className="text-xl font-bold text-gray-800 mb-1">Welcome back ðŸ‘‹</h2>
           <p className="text-sm text-gray-700 mb-6">Sign in to mark your attendance</p>
           {error && (
             <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-2xl p-3.5 mb-5">
@@ -75,7 +75,7 @@ export default function LoginPage() {
               <div className="relative">
                 <input type={showPass ? 'text' : 'password'} value={password}
                   onChange={e => { setPassword(e.target.value); setError(''); }}
-                  placeholder="••••••••" autoComplete="current-password"
+                  placeholder="€¢€¢€¢€¢€¢€¢€¢€¢" autoComplete="current-password"
                   className="w-full border border-gray-200 rounded-xl px-4 py-3 pr-11 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 transition" />
                 <button type="button" onClick={() => setShowPass(p => !p)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
@@ -97,9 +97,10 @@ export default function LoginPage() {
             </button>
           </form>
         </div>
-        <p className="text-center text-xs text-gray-400 mt-6">Gharpayy Attendance · {new Date().getFullYear()}</p>
+        <p className="text-center text-xs text-gray-400 mt-6">Gharpayy Attendance  -  {new Date().getFullYear()}</p>
         <p className="text-center text-xs text-gray-700 mt-3">New to Gharpayy? <a href="/signup" className="text-orange-500 hover:underline font-semibold">Sign up here</a></p>
       </div>
     </div>
   );
 }
+

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useEffect, useState } from 'react';
 import { Clock } from 'lucide-react';
 
@@ -37,19 +37,51 @@ function fmtISTMeridiem(iso: string) {
 
 export default function EmployeeDetail({ employeeId }: { employeeId?: string }) {
   const [att, setAtt] = useState<AttStatus | null>(null);
+  const [analytics, setAnalytics] = useState<any>(null);
+  const [userRole, setUserRole] = useState<string>('');
+  const [employees, setEmployees] = useState<{ _id: string; fullName: string }[]>([]);
+  const [selectedEmployee, setSelectedEmployee] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [clocking, setClocking] = useState(false);
   const [msg, setMsg] = useState('');
 
-  const fetchStatus = () => {
-    fetch('/api/attendance/status', { cache: 'no-store' })
+  const fetchStatus = (empId?: string) => {
+    const url = userRole === 'admin' || userRole === 'manager'
+      ? `/api/attendance/employee?id=${empId || selectedEmployee || ''}`
+      : '/api/attendance/status';
+    fetch(url, { cache: 'no-store' })
       .then(r => r.json())
-      .then(d => setAtt(d))
+      .then(d => {
+        setAtt(d.attendance || d);
+        setAnalytics(d.analytics || null);
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { fetchStatus(); }, []);
+  useEffect(() => {
+    fetch('/api/auth/me', { cache: 'no-store' })
+      .then(r => r.json())
+      .then(async me => {
+        setUserRole(me.role || '');
+        if (me.role === 'admin' || me.role === 'manager') {
+          const e = await fetch('/api/employees', { cache: 'no-store' }).then(r => r.json()).catch(() => ({ users: [] }));
+          const emps = (e.users || []).filter((u: any) => u.role === 'employee').map((u: any) => ({ _id: u._id, fullName: u.fullName }));
+          setEmployees(emps);
+          const first = employeeId || emps[0]?._id || '';
+          setSelectedEmployee(first);
+          setLoading(true);
+          fetchStatus(first);
+        } else {
+          setLoading(true);
+          fetchStatus();
+        }
+      })
+      .catch(() => {
+        setLoading(true);
+        fetchStatus();
+      });
+  }, []);
 
   const flash = (m: string) => { setMsg(m); setTimeout(() => setMsg(''), 3500); };
 
@@ -92,6 +124,18 @@ export default function EmployeeDetail({ employeeId }: { employeeId?: string }) 
         </div>
         <span className="text-gray-700 text-sm">Today's Detail</span>
       </div>
+      {(userRole === 'admin' || userRole === 'manager') && employees.length > 0 && (
+        <div className="mb-4">
+          <select
+            value={selectedEmployee}
+            onChange={(e) => { setSelectedEmployee(e.target.value); setLoading(true); fetchStatus(e.target.value); }}
+            className="px-3 py-2 rounded-xl text-sm focus:outline-none"
+            style={{ background: '#ffffff', border: '1px solid #e5e7eb', color: '#374151' }}
+          >
+            {employees.map(e => <option key={e._id} value={e._id}>{e.fullName}</option>)}
+          </select>
+        </div>
+      )}
 
       <div className="bg-orange-50 rounded-2xl p-6 md:p-8 border border-orange-200">
         {loading ? (
@@ -143,7 +187,7 @@ export default function EmployeeDetail({ employeeId }: { employeeId?: string }) 
             </button>
 
             {isIn && (
-              <p className="text-center text-teal-600 text-sm">Currently active · GPS verified</p>
+              <p className="text-center text-teal-600 text-sm">Currently active  -  GPS verified</p>
             )}
 
             {msg && (
@@ -170,6 +214,30 @@ export default function EmployeeDetail({ employeeId }: { employeeId?: string }) 
           </div>
         </div>
       )}
+      {analytics && (
+        <div className="mt-6">
+          <h3 className="text-sm font-medium text-gray-600 mb-3">30-Day Pattern</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
+              <div className="text-xs text-gray-700">Late Frequency</div>
+              <div className="text-lg font-bold text-orange-500">{analytics.lateRate || 0}%</div>
+            </div>
+            <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
+              <div className="text-xs text-gray-700">Early Pattern</div>
+              <div className="text-lg font-bold text-green-600">{analytics.earlyRate || 0}%</div>
+            </div>
+            <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
+              <div className="text-xs text-gray-700">On Time Rate</div>
+              <div className="text-lg font-bold text-teal-600">{analytics.onTimeRate || 0}%</div>
+            </div>
+            <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
+              <div className="text-xs text-gray-700">Avg Work</div>
+              <div className="text-lg font-bold text-gray-800">{Math.floor((analytics.avgWorkMins || 0)/60)}h {(analytics.avgWorkMins || 0)%60}m</div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+

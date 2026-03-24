@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { Menu, X, Users, BarChart3 } from 'lucide-react';
@@ -17,7 +17,7 @@ export default function AdminNav() {
 
   return (
     <>
-      {/* Desktop — horizontal tabs (hidden on mobile) */}
+      {/* Desktop €” horizontal tabs (hidden on mobile) */}
       <div className="hidden md:block bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-2xl mx-auto px-4 md:px-6">
           <div className="flex gap-1">
@@ -35,7 +35,7 @@ export default function AdminNav() {
         </div>
       </div>
 
-      {/* Mobile — hamburger menu */}
+      {/* Mobile €” hamburger menu */}
       <div className="md:hidden bg-white border-b border-gray-200">
         <div className="flex items-center justify-between px-4 py-3">
           <h2 className="font-semibold text-gray-800">Admin Panel</h2>
@@ -69,3 +69,4 @@ export default function AdminNav() {
     </>
   );
 }
+

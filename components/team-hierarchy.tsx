@@ -21,6 +21,7 @@ export default function TeamHierarchy() {
   const [editData, setEditData] = useState({ managerId: '', teamName: '', department: '' });
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
+  const [managerFilter, setManagerFilter] = useState('');
 
   const fetchOrg = () => {
     setLoading(true);
@@ -126,6 +127,19 @@ export default function TeamHierarchy() {
         <div className="text-xs" style={{ color: '#6b7280' }}>
           {groupedByZone ? 'Grouped by zone - assign team & department below' : 'Grouped by manager'}
         </div>
+        {!groupedByZone && managers.length > 0 && (
+          <div className="mt-3">
+            <select
+              value={managerFilter}
+              onChange={e => setManagerFilter(e.target.value)}
+              className="px-3 py-2 rounded-xl text-xs focus:outline-none"
+              style={{ background: '#f3f4f6', border: '1px solid #e5e7eb', color: '#374151' }}
+            >
+              <option value="">All Managers</option>
+              {managers.map(m => <option key={m._id} value={m._id}>{m.fullName}</option>)}
+            </select>
+          </div>
+        )}
         {msg && (
           <div className="mt-3 px-3 py-2 rounded-xl text-xs font-medium"
             style={{ background: msg.ok ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)', color: msg.ok ? '#10b981' : '#ef4444' }}>
@@ -140,7 +154,9 @@ export default function TeamHierarchy() {
         </div>
       ) : (
         <>
-          {tree.map(group => (
+          {tree
+            .filter(group => !managerFilter || group._id === managerFilter || group.reports.some((r: any) => (r as any).managerId === managerFilter))
+            .map(group => (
             <div key={group._id} style={card} className="overflow-hidden">
               <button onClick={() => setExpanded(p => ({ ...p, [group._id]: !p[group._id] }))}
                 className="w-full flex items-center justify-between p-4 transition hover:bg-gray-50 text-left">

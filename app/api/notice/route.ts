@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/db';
 import Notice from '@/models/Notice';
 import User from '@/models/User';
 import { getAuthUser } from '@/lib/auth';
 
-// GET — fetch notices for current user
+// GET €” fetch notices for current user
 export async function GET() {
   try {
     const user = await getAuthUser();
@@ -38,6 +38,7 @@ export async function GET() {
       targetName: n.targetName,
       createdBy: n.createdBy,
       createdByName: n.createdByName || 'Admin',
+      readBy: Array.isArray(n.readBy) ? n.readBy : [],
       isRead: Array.isArray(n.readBy) ? n.readBy.includes(user.id) : false,
       createdAt: n.createdAt,
     }));
@@ -50,7 +51,7 @@ export async function GET() {
   }
 }
 
-// POST — create notice (manager/admin only)
+// POST €” create notice (manager/admin only)
 export async function POST(req: NextRequest) {
   try {
     const user = await getAuthUser();
@@ -89,7 +90,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// DELETE — delete notice (manager/admin only)
+// DELETE €” delete notice (manager/admin only)
 export async function DELETE(req: NextRequest) {
   try {
     const user = await getAuthUser();
@@ -107,3 +108,4 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
 }
+

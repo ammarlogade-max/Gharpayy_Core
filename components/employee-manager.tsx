@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useEffect, useState, useRef } from 'react';
 import {
   Users, Plus, Upload, X, Trash2, Eye, EyeOff,
@@ -80,7 +80,7 @@ export default function EmployeeManager() {
 
   useEffect(() => { fetchEmployees(); }, []);
 
-  // ── Manual create ──────────────────────────────────────────────────────────
+  // ”€”€ Manual create ”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€
   const handleManualCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fullName.trim() || !email.trim() || !password) return;
@@ -93,7 +93,7 @@ export default function EmployeeManager() {
       });
       const d = await r.json();
       if (d.ok) {
-        flash(`✅ ${fullName} added successfully!`, true);
+        flash(`œ… ${fullName} added successfully!`, true);
         setFullName(''); setEmail(''); setPassword(''); setRole('employee');
         setShowManual(false);
         fetchEmployees();
@@ -106,7 +106,7 @@ export default function EmployeeManager() {
     setSubmitting(false);
   };
 
-  // ── CSV parsing ────────────────────────────────────────────────────────────
+  // ”€”€ CSV parsing ”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€
   const handleCSVFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -169,7 +169,7 @@ export default function EmployeeManager() {
     fetchEmployees();
   };
 
-  // ── Delete ─────────────────────────────────────────────────────────────────
+  // ”€”€ Delete ”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€
   const handleDelete = async (id: string, name: string) => {
     if (!confirm(`Remove ${name}? This will delete their account but keep attendance records.`)) return;
     setDeleting(id);
@@ -188,7 +188,7 @@ export default function EmployeeManager() {
     setDeleting(null);
   };
 
-  // ── CSV template download ─────────────────────────────────────────────────
+  // ”€”€ CSV template download ”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€
   const downloadTemplate = () => {
     const csv = 'Full Name,Email,Password,Role\nSatvik Sharma,satvik@gharpayy.com,Pass@1234,employee\nPulkit Gupta,pulkit@gharpayy.com,Pass@1234,employee';
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -210,7 +210,7 @@ export default function EmployeeManager() {
             </div>
             <div>
               <h2 className="text-xl font-bold text-gray-800">Employee Management</h2>
-              <p className="text-xs text-gray-700 mt-0.5">{employees.length} accounts · Admin only</p>
+              <p className="text-xs text-gray-700 mt-0.5">{employees.length} accounts  -  Admin only</p>
             </div>
           </div>
           <button onClick={fetchEmployees} className="p-2 rounded-xl hover:bg-gray-100 transition">
@@ -401,7 +401,7 @@ export default function EmployeeManager() {
                 }`}>
                   <div>
                     <p className="text-sm font-semibold text-gray-800">{row.fullName}</p>
-                    <p className="text-xs text-gray-700">{row.email} · {row.role}</p>
+                    <p className="text-xs text-gray-700">{row.email}  -  {row.role}</p>
                     {row.error && <p className="text-xs text-red-500 mt-0.5">{row.error}</p>}
                   </div>
                   <div className="flex-shrink-0">
@@ -430,7 +430,7 @@ export default function EmployeeManager() {
                     Importing...
                   </>
                 ) : csvRows.every(r => r.status === 'ok') ? (
-                  '✅ All Imported!'
+                  'œ… All Imported!'
                 ) : (
                   `Import ${csvRows.filter(r => r.status !== 'ok').length} Employees`
                 )}
@@ -442,3 +442,4 @@ export default function EmployeeManager() {
     </div>
   );
 }
+

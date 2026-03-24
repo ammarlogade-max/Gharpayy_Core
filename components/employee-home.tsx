@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { LogOut, Clock, CheckCircle, XCircle, MapPin, Menu, X, Home, User, Bell } from 'lucide-react';
@@ -87,7 +87,7 @@ export default function EmployeeHome({ user }: { user: User }) {
       });
       const d = await r.json();
       if (d.ok) {
-        flash(`✅ Checked in! You are ${d.dayStatus}.`, true);
+        flash(`œ… Checked in! You are ${d.dayStatus}.`, true);
         fetchStatus();
       } else {
         flash(d.error === 'Already checked in' ? 'You are already checked in.' : d.error || 'Check-in failed.', false);
@@ -109,7 +109,7 @@ export default function EmployeeHome({ user }: { user: User }) {
       });
       const d = await r.json();
       if (d.ok) {
-        flash(`✅ Checked out! Worked ${fmtMins(d.totalWorkMins)} today.`, true);
+        flash(`œ… Checked out! Worked ${fmtMins(d.totalWorkMins)} today.`, true);
         fetchStatus();
       } else {
         flash(d.error || 'Check-out failed.', false);
@@ -132,9 +132,9 @@ export default function EmployeeHome({ user }: { user: User }) {
 
   const statusText = () => {
     if (loading) return null;
-    if (isIn) return { color: 'text-green-700', text: `● Checked In at ${att?.firstCheckIn ? fmtTime(att.firstCheckIn) : '--'}` };
-    if (att?.sessions > 0) return { color: 'text-gray-600', text: `✓ Checked Out · Worked ${att.totalWorkFormatted}` };
-    return { color: 'text-gray-700', text: '● Not Checked In Yet' };
+    if (isIn) return { color: 'text-green-700', text: `- Checked In at ${att?.firstCheckIn ? fmtTime(att.firstCheckIn) : '--'}` };
+    if (att?.sessions > 0) return { color: 'text-gray-600', text: `œ“ Checked Out  -  Worked ${att.totalWorkFormatted}` };
+    return { color: 'text-gray-700', text: '- Not Checked In Yet' };
   };
 
   const status = statusText();
@@ -196,12 +196,12 @@ export default function EmployeeHome({ user }: { user: User }) {
         {/* Welcome */}
         <div>
           <h1 className="text-2xl font-bold text-gray-800">
-            Hi, {user.fullName.split(' ')[0]} 👋
+            Hi, {user.fullName.split(' ')[0]} ðŸ‘‹
           </h1>
           <p className="text-gray-700 text-sm mt-0.5">{today}</p>
         </div>
 
-        {/* ATTENDANCE CARD — quick status + clock in/out only */}
+        {/* ATTENDANCE CARD €” quick status + clock in/out only */}
         <div className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
 
           {/* Banner with avatar */}
@@ -240,7 +240,7 @@ export default function EmployeeHome({ user }: { user: User }) {
               )}
             </div>
 
-            {/* Quick stats — only if checked in today */}
+            {/* Quick stats €” only if checked in today */}
             {!loading && att?.sessions > 0 && (
               <div className="grid grid-cols-3 gap-2">
                 {[
@@ -308,7 +308,7 @@ export default function EmployeeHome({ user }: { user: User }) {
               onClick={() => router.push('/clock')}
               className="w-full py-2.5 rounded-2xl text-sm font-medium text-orange-500 border border-orange-200 hover:bg-orange-50 transition"
             >
-              View Full Attendance Detail →
+              View Full Attendance Detail †’
             </button>
 
             {/* Flash message */}
@@ -332,3 +332,4 @@ export default function EmployeeHome({ user }: { user: User }) {
     </div>
   );
 }
+

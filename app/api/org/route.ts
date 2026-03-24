@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/db';
 import User from '@/models/User';
 import OfficeZone from '@/models/OfficeZone';
@@ -98,10 +98,11 @@ function mapEmployee(e: any) {
     team:       (e.officeZoneId as any)?.name || 'No Zone',
     jobRole:    e.jobRole    || '',
     isApproved: e.isApproved,
+    managerId:  e.managerId?.toString?.() || null,
   };
 }
 
-// PATCH /api/org — assign manager/team/department
+// PATCH /api/org €” assign manager/team/department
 export async function PATCH(req: NextRequest) {
   try {
     const user = await getAuthUser();
@@ -134,3 +135,4 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
 }
+

@@ -9,6 +9,8 @@ interface AttRecord {
   workMode: string;
   totalWorkMins: number;
   totalBreakMins: number;
+  lateByMins: number;
+  earlyByMins: number;
   isCheckedIn: boolean;
   firstCheckIn: string | null;
   lastCheckOut: string | null;
@@ -45,25 +47,14 @@ export default function MyHistory() {
   const [loading, setLoading] = useState(true);
   const [monthOffset, setMonthOffset] = useState(0);
 
-  const { start, end, label } = getMonthRange(monthOffset);
+  const { start, label } = getMonthRange(monthOffset);
 
   useEffect(() => {
     setLoading(true);
-    // Fetch heatmap data for date range using week param approach
-    // We'll fetch day by day using attendance/status history via heatmap
-    fetch(`/api/attendance/heatmap?date=${start}`, { cache: 'no-store' })
+    fetch(`/api/attendance/history?month=${start.slice(0, 7)}`, { cache: 'no-store' })
       .then(r => r.json())
       .then(d => {
-        if (d.heatmap?.[0]?.days) {
-          const days = d.heatmap[0].days;
-          const recs: AttRecord[] = Object.entries(days).map(([date, status]) => ({
-            date, dayStatus: status as string,
-            workMode: status === 'Absent' ? 'Absent' : 'Present',
-            totalWorkMins: 0, totalBreakMins: 0,
-            isCheckedIn: false, firstCheckIn: null, lastCheckOut: null,
-          })).sort((a, b) => b.date.localeCompare(a.date));
-          setRecords(recs);
-        }
+        if (Array.isArray(d.records)) setRecords(d.records);
       })
       .catch(() => {}).finally(() => setLoading(false));
   }, [monthOffset, start]);
@@ -103,7 +94,7 @@ export default function MyHistory() {
               {[
                 { label: 'Present', value: presentCount, color: '#10b981' },
                 { label: 'Absent',  value: records.length - presentCount, color: '#ef4444' },
-                { label: 'Late',    value: lateCount,    color: '#f59e0b' },
+                { label: 'Late/Early', value: `${lateCount}/${records.filter(r => r.dayStatus === 'Early').length}`, color: '#f59e0b' },
               ].map(s => (
                 <div key={s.label} className="p-3 rounded-xl text-center" style={{ background: '#f9fafb' }}>
                   <div className="text-2xl font-bold" style={{ color: s.color }}>{s.value}</div>
@@ -127,22 +118,28 @@ export default function MyHistory() {
             ) : (
               <>
                 {/* Header */}
-                <div className="grid grid-cols-3 px-4 py-2.5 border-b" style={{ borderColor: '#f9fafb' }}>
-                  {['Date', 'Status', 'Hours'].map(h => (
+                <div className="grid grid-cols-4 px-4 py-2.5 border-b" style={{ borderColor: '#f9fafb' }}>
+                  {['Date', 'Status', 'Late/Early', 'Hours'].map(h => (
                     <div key={h} className="text-[10px] font-bold uppercase tracking-wide" style={{ color: '#9ca3af' }}>{h}</div>
                   ))}
                 </div>
                 <div className="divide-y" style={{ borderColor: '#f9fafb' }}>
                   {records.map(r => {
                     const sc = STATUS_COLOR[r.dayStatus] || STATUS_COLOR.Absent;
+                    const variance = r.dayStatus === 'Late'
+                      ? `+${r.lateByMins || 0}m`
+                      : r.dayStatus === 'Early'
+                        ? `-${r.earlyByMins || 0}m`
+                        : '--';
                     return (
-                      <div key={r.date} className="grid grid-cols-3 px-4 py-3 items-center hover:bg-gray-50 transition">
+                      <div key={r.date} className="grid grid-cols-4 px-4 py-3 items-center hover:bg-gray-50 transition">
                         <div className="text-sm" style={{ color: '#374151' }}>{fmtDate(r.date)}</div>
                         <div>
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg" style={{ background: sc.bg, color: sc.color }}>
                             {r.dayStatus}
                           </span>
                         </div>
+                        <div className="text-sm" style={{ color: '#6b7280' }}>{variance}</div>
                         <div className="text-sm" style={{ color: '#6b7280' }}>
                           {r.dayStatus === 'Absent' ? '--' : fmtMins(r.totalWorkMins) || '--'}
                         </div>

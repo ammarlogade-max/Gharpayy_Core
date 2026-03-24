@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useEffect, useState } from 'react';
 import { Calendar, CheckCircle } from 'lucide-react';
 
@@ -68,7 +68,7 @@ export default function WeekOffSetting() {
 
       <p className="text-xs text-gray-400 mt-3">
         Current week off: <strong className="text-gray-600">{current}</strong>
-        &nbsp;·&nbsp;applies to all employees across all zones
+        &nbsp; - &nbsp;applies to all employees across all zones
       </p>
     </div>
   );

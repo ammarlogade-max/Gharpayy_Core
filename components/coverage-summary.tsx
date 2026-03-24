@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useEffect, useState } from 'react';
 import { Clock, CheckCircle } from 'lucide-react';
 
@@ -57,7 +57,7 @@ export default function CoverageSummary() {
           <Clock className="w-6 h-6 text-orange-500" />
           <h2 className="text-xl md:text-2xl font-bold text-gray-800">Attendance</h2>
         </div>
-        <span className="text-gray-700 text-sm md:text-base">Today · <strong className="text-gray-800">{present}/{total} present</strong></span>
+        <span className="text-gray-700 text-sm md:text-base">Today  -  <strong className="text-gray-800">{present}/{total} present</strong></span>
       </div>
 
       <h3 className="text-gray-600 text-sm md:text-base font-medium mb-6">Coverage Summary</h3>
@@ -103,10 +103,11 @@ export default function CoverageSummary() {
 
           <div className="mt-4 p-3 bg-teal-100 rounded-lg flex items-start gap-3">
             <CheckCircle className="w-5 h-5 text-teal-600 flex-shrink-0 mt-0.5" />
-            <p className="text-sm text-teal-700">All locations verified · {roles.length} role{roles.length !== 1 ? 's' : ''} tracked</p>
+            <p className="text-sm text-teal-700">All locations verified  -  {roles.length} role{roles.length !== 1 ? 's' : ''} tracked</p>
           </div>
         </div>
       )}
     </div>
   );
 }
+

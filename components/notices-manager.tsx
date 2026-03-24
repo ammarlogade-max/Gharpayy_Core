@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useEffect, useState } from 'react';
 import { Bell, Plus, Trash2, X, AlertTriangle, Info, Zap, Users, User } from 'lucide-react';
 
@@ -54,7 +54,7 @@ export default function NoticesManager() {
   const [targetId, setTargetId] = useState('');
 
   const fetchNotices = () => {
-    // FIX: was /api/notices — correct is /api/notice
+    // FIX: was /api/notices €” correct is /api/notice
     fetch('/api/notice', { cache: 'no-store' })
       .then(r => r.json())
       .then(d => { if (d.notices) setNotices(d.notices); })
@@ -75,7 +75,7 @@ export default function NoticesManager() {
     if (!title.trim() || !message.trim()) return;
     setSubmitting(true);
     try {
-      // FIX: was /api/notices — correct is /api/notice
+      // FIX: was /api/notices €” correct is /api/notice
       const r = await fetch('/api/notice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -94,7 +94,7 @@ export default function NoticesManager() {
   const handleDelete = async (id: string) => {
     setDeleting(id);
     try {
-      // FIX: was /api/notices — correct is /api/notice
+      // FIX: was /api/notices €” correct is /api/notice
       await fetch('/api/notice', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
@@ -120,7 +120,7 @@ export default function NoticesManager() {
           </div>
           <div>
             <h2 className="text-xl font-bold text-gray-800">Notices & Warnings</h2>
-            <p className="text-xs text-gray-700 mt-0.5">{notices.length} total · {warningCount + urgentCount} alerts</p>
+            <p className="text-xs text-gray-700 mt-0.5">{notices.length} total  -  {warningCount + urgentCount} alerts</p>
           </div>
         </div>
         <button

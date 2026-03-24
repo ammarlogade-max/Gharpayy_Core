@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useEffect, useState } from 'react';
 import { Clock } from 'lucide-react';
 
@@ -81,7 +81,7 @@ export default function WeeklyHeatmap() {
           <h2 className="text-xl md:text-2xl font-bold text-gray-800">Attendance</h2>
         </div>
         <span className="text-gray-700 text-sm md:text-base">
-          Today · <strong className="text-gray-800">{present}/{total} present</strong>
+          Today  -  <strong className="text-gray-800">{present}/{total} present</strong>
         </span>
       </div>
 
@@ -141,7 +141,7 @@ export default function WeeklyHeatmap() {
                     return (
                       <div
                         key={d.date}
-                        title={isWeekOff ? 'Week Off' : status === 'none' ? '—' : status}
+                        title={isWeekOff ? 'Week Off' : status === 'none' ? '€”' : status}
                         className={`flex-1 min-w-[48px] h-10 md:h-12 rounded-lg ${STATUS_COLOR[status]} transition hover:opacity-80 ${
                           d.date === today ? 'ring-2 ring-orange-400 ring-offset-1' : ''
                         }`}

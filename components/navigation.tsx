@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useRouter, usePathname } from 'next/navigation';
 import { BarChart2, List, PieChart, MapPin, Clock, Bell, GitBranch } from 'lucide-react';
 
@@ -21,7 +21,7 @@ export default function Navigation() {
 
   return (
     <>
-      {/* Desktop — horizontal tabs */}
+      {/* Desktop €” horizontal tabs */}
       <div className="hidden md:block bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-2xl mx-auto px-4 md:px-6">
           <div className="flex gap-1 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
@@ -39,7 +39,7 @@ export default function Navigation() {
         </div>
       </div>
 
-      {/* Mobile — bottom navigation bar */}
+      {/* Mobile €” bottom navigation bar */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 shadow-lg"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <div className="grid grid-cols-7 h-16">

@@ -34,6 +34,9 @@ export default function Approvals() {
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState<string | null>(null);
   const [pendingCount, setPendingCount] = useState(0);
+  const [employees, setEmployees] = useState<any[]>([]);
+  const [corr, setCorr] = useState({ employeeId: '', date: '', clockIn: '10:00', clockOut: '19:00', reason: '' });
+  const [corrSaving, setCorrSaving] = useState(false);
 
   const fetchData = (status = tab) => {
     setLoading(true);
@@ -79,6 +82,9 @@ export default function Approvals() {
   };
 
   useEffect(() => { fetchData(); }, []);
+  useEffect(() => {
+    fetch('/api/employees', { cache: 'no-store' }).then(r => r.json()).then(d => { if (d.users) setEmployees(d.users.filter((u: any) => u.role === 'employee')); }).catch(() => {});
+  }, []);
 
   const act = async (id: string, status: 'approved' | 'rejected') => {
     setActing(id);
@@ -103,6 +109,19 @@ export default function Approvals() {
   };
 
   const switchTab = (t: 'pending' | 'approved' | 'rejected') => { setTab(t); fetchData(t); };
+  const saveCorrection = async () => {
+    if (!corr.employeeId || !corr.date || !corr.clockIn || !corr.clockOut) return;
+    setCorrSaving(true);
+    try {
+      await fetch('/api/attendance/corrections', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(corr),
+      });
+      fetchData(tab);
+    } catch {}
+    setCorrSaving(false);
+  };
 
   const card = { background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: 20, boxShadow: '0 1px 2px rgba(0,0,0,0.04)' };
 
@@ -135,6 +154,32 @@ export default function Approvals() {
                 border: `1px solid ${tab === t ? 'rgba(249,115,22,0.3)' : 'transparent'}`,
               }}>{t}</button>
           ))}
+        </div>
+        <div className="mt-4 grid grid-cols-1 md:grid-cols-6 gap-2">
+          <select value={corr.employeeId} onChange={e => setCorr(p => ({ ...p, employeeId: e.target.value }))}
+            className="px-3 py-2 rounded-xl text-xs focus:outline-none"
+            style={{ background: '#f9fafb', border: '1px solid #e5e7eb', color: '#4b5563' }}>
+            <option value="">Manual correction: select employee</option>
+            {employees.map((e: any) => <option key={e._id} value={e._id}>{e.fullName}</option>)}
+          </select>
+          <input type="date" value={corr.date} onChange={e => setCorr(p => ({ ...p, date: e.target.value }))}
+            className="px-3 py-2 rounded-xl text-xs focus:outline-none"
+            style={{ background: '#f9fafb', border: '1px solid #e5e7eb', color: '#4b5563' }} />
+          <input type="time" value={corr.clockIn} onChange={e => setCorr(p => ({ ...p, clockIn: e.target.value }))}
+            className="px-3 py-2 rounded-xl text-xs focus:outline-none"
+            style={{ background: '#f9fafb', border: '1px solid #e5e7eb', color: '#4b5563' }} />
+          <input type="time" value={corr.clockOut} onChange={e => setCorr(p => ({ ...p, clockOut: e.target.value }))}
+            className="px-3 py-2 rounded-xl text-xs focus:outline-none"
+            style={{ background: '#f9fafb', border: '1px solid #e5e7eb', color: '#4b5563' }} />
+          <input type="text" value={corr.reason} onChange={e => setCorr(p => ({ ...p, reason: e.target.value }))}
+            placeholder="Reason"
+            className="px-3 py-2 rounded-xl text-xs focus:outline-none text-gray-700 placeholder-gray-400"
+            style={{ background: '#f9fafb', border: '1px solid #e5e7eb' }} />
+          <button onClick={saveCorrection} disabled={corrSaving}
+            className="px-3 py-2 rounded-xl text-xs font-semibold disabled:opacity-50"
+            style={{ background: '#f97316', color: '#fff' }}>
+            {corrSaving ? 'Saving...' : 'Apply'}
+          </button>
         </div>
       </div>
 

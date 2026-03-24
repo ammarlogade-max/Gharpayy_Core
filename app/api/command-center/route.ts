@@ -6,6 +6,7 @@ import Task from '@/models/Task';
 import ExceptionRequest from '@/models/ExceptionRequest';
 import '@/models/OfficeZone';
 import { getAuthUser } from '@/lib/auth';
+import { autoCloseMissedClockOut } from '@/lib/attendance-utils';
 
 function getISTDate() {
   return new Date(Date.now() + 5.5 * 60 * 60 * 1000).toISOString().split('T')[0];
@@ -21,6 +22,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     await connectDB();
+    await autoCloseMissedClockOut();
     const today = getISTDate();
 
     const employees = await User.find({ isApproved: true, role: 'employee' }, 'fullName email officeZoneId')
@@ -29,6 +31,11 @@ export async function GET() {
 
     const todayAtt = await Attendance.find({ employeeId: { $in: employees.map(e => e._id) }, date: today }).lean() as any[];
     const attMap = new Map(todayAtt.map((a: any) => [a.employeeId.toString(), a]));
+    const y = new Date(today);
+    y.setDate(y.getDate() - 1);
+    const yDate = y.toISOString().split('T')[0];
+    const yAtt = await Attendance.find({ employeeId: { $in: employees.map(e => e._id) }, date: yDate }).lean() as any[];
+    const yesterdayPresent = yAtt.filter((a: any) => (a.dayStatus || 'Absent') !== 'Absent').length;
 
     let presentCount = 0, absentCount = 0, lateCount = 0, earlyCount = 0, onTimeCount = 0, breakCount = 0, fieldCount = 0;
 
@@ -76,10 +83,14 @@ export async function GET() {
     if (taskSummary.blocked > 0) needAction.push({ type: 'blocked_tasks', count: taskSummary.blocked, label: `${taskSummary.blocked} blocked task${taskSummary.blocked > 1 ? 's' : ''}` });
     if (lateCount > 0) needAction.push({ type: 'late', count: lateCount, label: `${lateCount} employee${lateCount > 1 ? 's' : ''} late today` });
     if (taskSummary.overdue > 0) needAction.push({ type: 'overdue', count: taskSummary.overdue, label: `${taskSummary.overdue} overdue task${taskSummary.overdue > 1 ? 's' : ''}` });
+    if (presentCount < yesterdayPresent) {
+      needAction.push({ type: 'attendance_drop', count: yesterdayPresent - presentCount, label: `Attendance drop vs yesterday: -${yesterdayPresent - presentCount}` });
+    }
 
     return NextResponse.json({
       ok: true, date: today,
       summary: { total, present: presentCount, absent: absentCount, late: lateCount, early: earlyCount, onTime: onTimeCount, onBreak: breakCount, inField: fieldCount, activeNow: presentCount },
+      compare: { yesterdayPresent, presentDelta: presentCount - yesterdayPresent },
       healthScore,
       kpis: { attendance: attendanceRate, onTimeRate, taskCompletion: taskCompletionRate, breakDiscipline },
       teamPulse, taskSummary, pendingApprovals, needAction,

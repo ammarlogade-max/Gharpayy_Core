@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useEffect, useState } from 'react';
 import { Plus, X, AlertTriangle } from 'lucide-react';
 
@@ -81,7 +81,7 @@ export default function TaskBoard() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Task Board</h1>
           <div className="text-xs mt-1" style={{ color: '#6b7280' }}>
-            {summary.total || 0} tasks · {summary.completed || 0} done · {summary.blocked || 0} blocked
+            {summary.total || 0} tasks  -  {summary.completed || 0} done  -  {summary.blocked || 0} blocked
           </div>
         </div>
         <button onClick={() => setShowForm(true)}
@@ -211,5 +211,6 @@ export default function TaskBoard() {
     </div>
   );
 }
+
 
 

@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation';
+﻿import { redirect } from 'next/navigation';
 import { getAuthUser } from '@/lib/auth';
 import Header from '@/components/header';
 import Navigation from '@/components/navigation';
@@ -9,7 +9,7 @@ export default async function ClockPage() {
   const user = await getAuthUser();
   if (!user) redirect('/login');
 
-  // Admin / Manager — show attendance detail with header and nav
+  // Admin / Manager €” show attendance detail with header and nav
   if (user.role === 'admin' || user.role === 'manager') {
     return (
       <main className="min-h-screen bg-gray-50">
@@ -26,7 +26,7 @@ export default async function ClockPage() {
     );
   }
 
-  // Employee — show with employee nav
+  // Employee €” show with employee nav
   return (
     <div className="min-h-screen bg-gray-50 pb-20 md:pb-0"
       style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>

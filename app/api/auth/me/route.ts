@@ -1,17 +1,17 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/db';
 import User from '@/models/User';
-import '@/models/OfficeZone'; // ← required so mongoose knows the schema for populate
+import '@/models/OfficeZone'; // † required so mongoose knows the schema for populate
 import { getAuthUser } from '@/lib/auth';
 import mongoose from 'mongoose';
 
-// GET — return current user with full DB data
+// GET €” return current user with full DB data
 export async function GET() {
   try {
     const user = await getAuthUser();
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    // Static admin — no DB record exists
+    // Static admin €” no DB record exists
     if (user.id === 'admin') {
       return NextResponse.json({
         id: 'admin',
@@ -44,7 +44,7 @@ export async function GET() {
   }
 }
 
-// PATCH — update profile photo
+// PATCH €” update profile photo
 export async function PATCH(req: NextRequest) {
   try {
     const user = await getAuthUser();

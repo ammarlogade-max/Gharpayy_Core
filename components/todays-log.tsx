@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useEffect, useState } from 'react';
 import { Clock, CheckCircle, XCircle, ChevronRight, X, Calendar, Info, Filter } from 'lucide-react';
 
@@ -115,7 +115,7 @@ export default function TodaysLog() {
 
   useEffect(() => { fetchLog(selectedDate); }, []);
 
-  // Status filter — client side
+  // Status filter €” client side
   useEffect(() => {
     if (!selectedStatus) {
       setEmployees(allEmployees);
@@ -176,8 +176,8 @@ export default function TodaysLog() {
             <h2 className="text-xl md:text-2xl font-bold text-gray-800">Attendance</h2>
           </div>
           <span className="text-gray-700 text-sm md:text-base">
-            {rangeMode ? `${rangeStart} → ${rangeEnd}` : isToday ? 'Today' : selectedDate}
-            &nbsp;·&nbsp;<strong className="text-gray-800">{present}/{total} present</strong>
+            {rangeMode ? `${rangeStart} †’ ${rangeEnd}` : isToday ? 'Today' : selectedDate}
+            &nbsp; - &nbsp;<strong className="text-gray-800">{present}/{total} present</strong>
           </span>
         </div>
 
@@ -264,15 +264,15 @@ export default function TodaysLog() {
           <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-2xl px-4 py-2.5 mb-4">
             <Info className="w-4 h-4 text-blue-500 flex-shrink-0" />
             <p className="text-xs text-blue-700">
-              <strong>Shift:</strong> Early = before {shiftInfo.earlyBefore} &nbsp;·&nbsp;
-              On Time = till {shiftInfo.onTimeTill} &nbsp;·&nbsp;
+              <strong>Shift:</strong> Early = before {shiftInfo.earlyBefore} &nbsp; - &nbsp;
+              On Time = till {shiftInfo.onTimeTill} &nbsp; - &nbsp;
               Late = after {shiftInfo.lateAfter}
             </p>
           </div>
         )}
 
         <h3 className="text-gray-600 text-sm font-medium mb-4">
-          {employees.length} employees · sorted Early first · click for details
+          {employees.length} employees  -  sorted Early first  -  click for details
         </h3>
 
         {loading ? (
@@ -334,7 +334,7 @@ export default function TodaysLog() {
                     </div>
                     <div>
                       <p className="font-bold text-gray-800">{drill.employee.fullName}</p>
-                      <p className="text-xs text-gray-700 capitalize">{drill.employee.role} · {drill.employee.email}</p>
+                      <p className="text-xs text-gray-700 capitalize">{drill.employee.role}  -  {drill.employee.email}</p>
                     </div>
                   </div>
                   <button onClick={() => setDrill(null)}
@@ -358,7 +358,7 @@ export default function TodaysLog() {
                         <div>
                           <p className="text-xs text-gray-700 mb-0.5">Status</p>
                           <p className={`font-bold text-sm ${drill.attendance.isCheckedIn ? 'text-green-700' : 'text-gray-700'}`}>
-                            {drill.attendance.isCheckedIn ? '● Active Right Now' : '✓ Checked Out'}
+                            {drill.attendance.isCheckedIn ? '- Active Right Now' : 'œ“ Checked Out'}
                           </p>
                         </div>
                         <span className={`text-xs font-semibold px-3 py-1.5 rounded-full ${statusStyle(drill.attendance.dayStatus)}`}>
@@ -409,3 +409,4 @@ export default function TodaysLog() {
     </>
   );
 }
+

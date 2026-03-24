@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, AlertCircle, CheckCircle, Upload } from 'lucide-react';
@@ -130,7 +130,7 @@ export default function SignupPage() {
         return;
       }
 
-      setSuccess('✓ Signup successful! Please wait for admin approval to access the system.');
+      setSuccess('œ“ Signup successful! Please wait for admin approval to access the system.');
       setTimeout(() => router.push('/login'), 3000);
     } catch {
       setError('Network error. Please try again.');
@@ -187,7 +187,7 @@ export default function SignupPage() {
                   <div className="relative">
                     <input type={showPass ? 'text' : 'password'} value={password}
                       onChange={e => { setPassword(e.target.value); setError(''); }}
-                      placeholder="••••••••" className="w-full border border-gray-200 rounded-xl px-4 py-3 pr-11 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 transition" />
+                      placeholder="€¢€¢€¢€¢€¢€¢€¢€¢" className="w-full border border-gray-200 rounded-xl px-4 py-3 pr-11 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 transition" />
                     <button type="button" onClick={() => setShowPass(p => !p)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
                       {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -199,7 +199,7 @@ export default function SignupPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">Confirm Password</label>
                   <input type="password" value={confirmPassword}
                     onChange={e => { setConfirmPassword(e.target.value); setError(''); }}
-                    placeholder="••••••••" className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 transition" />
+                    placeholder="€¢€¢€¢€¢€¢€¢€¢€¢" className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 transition" />
                 </div>
 
                 <div className="flex gap-3 mt-6">
@@ -293,7 +293,7 @@ export default function SignupPage() {
                     </div>
                   ) : zones.length === 0 ? (
                     <div className="w-full border border-red-200 rounded-xl px-4 py-3 text-sm bg-red-50 text-red-600">
-                      ⚠️ No zones available. Please contact admin.
+                      š ï¸ No zones available. Please contact admin.
                     </div>
                   ) : (
                     <select value={officeZoneId} onChange={e => { setOfficeZoneId(e.target.value); setError(''); }}
@@ -319,7 +319,7 @@ export default function SignupPage() {
                   {profilePhotoPreview && (
                     <div className="mt-3 flex items-center gap-3">
                       <img src={profilePhotoPreview} alt="Preview" className="w-16 h-16 rounded-lg object-cover border border-gray-200" />
-                      <span className="text-sm text-green-600">✓ Photo uploaded</span>
+                      <span className="text-sm text-green-600">œ“ Photo uploaded</span>
                     </div>
                   )}
                 </div>
@@ -344,3 +344,4 @@ export default function SignupPage() {
     </div>
   );
 }
+

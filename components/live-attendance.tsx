@@ -12,6 +12,8 @@ interface Employee {
   dayStatus: string;
   totalWorkMins: number;
   workMode?: string;
+  lateByMins?: number;
+  earlyByMins?: number;
 }
 
 interface DrillDown {
@@ -25,6 +27,7 @@ interface DrillDown {
 }
 
 interface Zone { _id: string; name: string; }
+interface Manager { _id: string; fullName: string; role: string; }
 
 const WORK_MODE_COLOR: Record<string, { bg: string; text: string; dot: string }> = {
   Present: { bg: 'rgba(16,185,129,0.12)', text: '#10b981', dot: '#10b981' },
@@ -54,6 +57,13 @@ function fmtMins(m: number) {
 function fmtISTTime(iso: string) {
   return new Date(iso).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' });
 }
+function fmtHHMMtoISTLabel(v: string) {
+  const [hh, mm] = (v || '').split(':').map(Number);
+  if (Number.isNaN(hh) || Number.isNaN(mm)) return v;
+  const h12 = hh % 12 || 12;
+  const ampm = hh >= 12 ? 'PM' : 'AM';
+  return `${h12}:${String(mm).padStart(2, '0')} ${ampm}`;
+}
 function getTodayIST() { return new Date(Date.now() + 5.5 * 60 * 60 * 1000).toISOString().split('T')[0]; }
 
 const FILTERS = ['All', 'Present', 'Break', 'Field', 'Absent'];
@@ -67,15 +77,34 @@ export default function LiveAttendance() {
   const [total, setTotal] = useState(0);
   const [filter, setFilter] = useState('All');
   const [selectedZone, setSelectedZone] = useState('');
+  const [selectedManager, setSelectedManager] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [selectedDate, setSelectedDate] = useState(getTodayIST());
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [rangeMode, setRangeMode] = useState(false);
   const [drill, setDrill] = useState<DrillDown | null>(null);
   const [drillLoading, setDrillLoading] = useState(false);
   const [shiftInfo, setShiftInfo] = useState<any>(null);
+  const [rulesForm, setRulesForm] = useState({ shiftStart: '10:00', shiftEnd: '19:00', graceMinutes: 15 });
+  const [savingRules, setSavingRules] = useState(false);
+  const [managers, setManagers] = useState<Manager[]>([]);
+  const [lateTrend, setLateTrend] = useState<{ date: string; late: number; present: number }[]>([]);
+  const [teamComparison, setTeamComparison] = useState<{ team: string; total: number; present: number; late: number }[]>([]);
 
-  const fetchData = useCallback((date = selectedDate, zone = selectedZone) => {
+  const fetchData = useCallback((date = selectedDate, zone = selectedZone, manager = selectedManager, status = statusFilter, from = dateFrom, to = dateTo, useRange = rangeMode) => {
     setLoading(true);
-    const params = new URLSearchParams({ date });
+    const params = new URLSearchParams();
+    if (useRange && from && to) {
+      params.set('dateFrom', from);
+      params.set('dateTo', to);
+      params.set('date', to);
+    } else {
+      params.set('date', date);
+    }
     if (zone) params.set('team', zone);
+    if (manager) params.set('manager', manager);
+    if (status) params.set('status', status);
     fetch(`/api/attendance/heatmap?${params}`, { cache: 'no-store' })
       .then(r => r.json())
       .then(d => {
@@ -91,16 +120,40 @@ export default function LiveAttendance() {
         if (d.present !== undefined) setPresent(d.present);
         if (d.total !== undefined) setTotal(d.total);
         if (d.shiftInfo) setShiftInfo(d.shiftInfo);
+        if (d.lateTrend) setLateTrend(d.lateTrend);
+        if (d.teamComparison) setTeamComparison(d.teamComparison);
       })
       .catch(() => {}).finally(() => setLoading(false));
-  }, [selectedDate, selectedZone]);
+  }, [selectedDate, selectedZone, selectedManager, statusFilter, dateFrom, dateTo, rangeMode]);
 
   useEffect(() => {
     fetchData();
     fetch('/api/zones').then(r => r.json()).then(d => { if (d.zones) setZones(d.zones); }).catch(() => {});
+    fetch('/api/org').then(r => r.json()).then(d => { if (d.availableManagers) setManagers(d.availableManagers); }).catch(() => {});
+    fetch('/api/attendance/rules').then(r => r.json()).then(d => {
+      if (d?.rules) setRulesForm({
+        shiftStart: d.rules.shiftStart || '10:00',
+        shiftEnd: d.rules.shiftEnd || '19:00',
+        graceMinutes: Number(d.rules.graceMinutes || 15),
+      });
+    }).catch(() => {});
     const interval = setInterval(() => fetchData(), 60000);
     return () => clearInterval(interval);
   }, []);
+
+  const saveRules = async () => {
+    setSavingRules(true);
+    try {
+      const r = await fetch('/api/attendance/rules', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(rulesForm),
+      });
+      const d = await r.json();
+      if (d?.ok) fetchData();
+    } catch {}
+    setSavingRules(false);
+  };
 
   useEffect(() => {
     if (filter === 'All') { setEmployees(all); return; }
@@ -158,21 +211,120 @@ export default function LiveAttendance() {
               className="bg-transparent text-sm w-full focus:outline-none" style={{ color: '#374151' }} />
           </div>
           <select value={selectedZone}
-            onChange={e => { setSelectedZone(e.target.value); fetchData(selectedDate, e.target.value); }}
+            onChange={e => { setSelectedZone(e.target.value); fetchData(selectedDate, e.target.value, selectedManager, statusFilter, dateFrom, dateTo, rangeMode); }}
             className="px-3 py-2 rounded-xl text-xs focus:outline-none"
             style={{ background: '#f9fafb', border: '1px solid #e5e7eb', color: '#4b5563' }}>
             <option value="">All Zones</option>
             {zones.map(z => <option key={z._id} value={z._id}>{z.name}</option>)}
           </select>
         </div>
+        <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2">
+          <select value={selectedManager}
+            onChange={e => { setSelectedManager(e.target.value); fetchData(selectedDate, selectedZone, e.target.value, statusFilter, dateFrom, dateTo, rangeMode); }}
+            className="px-3 py-2 rounded-xl text-xs focus:outline-none"
+            style={{ background: '#f9fafb', border: '1px solid #e5e7eb', color: '#4b5563' }}>
+            <option value="">All Managers</option>
+            {managers.map(m => <option key={m._id} value={m._id}>{m.fullName}</option>)}
+          </select>
+          <select value={statusFilter}
+            onChange={e => { setStatusFilter(e.target.value); fetchData(selectedDate, selectedZone, selectedManager, e.target.value, dateFrom, dateTo, rangeMode); }}
+            className="px-3 py-2 rounded-xl text-xs focus:outline-none"
+            style={{ background: '#f9fafb', border: '1px solid #e5e7eb', color: '#4b5563' }}>
+            <option value="all">All Status</option>
+            <option value="Early">Early</option>
+            <option value="On Time">On Time</option>
+            <option value="Late">Late</option>
+            <option value="Absent">Absent</option>
+          </select>
+          <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+            className="px-3 py-2 rounded-xl text-xs focus:outline-none"
+            style={{ background: '#f9fafb', border: '1px solid #e5e7eb', color: '#4b5563' }} />
+          <div className="flex gap-2">
+            <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
+              className="flex-1 px-3 py-2 rounded-xl text-xs focus:outline-none"
+              style={{ background: '#f9fafb', border: '1px solid #e5e7eb', color: '#4b5563' }} />
+            <button
+              onClick={() => { setRangeMode(true); fetchData(selectedDate, selectedZone, selectedManager, statusFilter, dateFrom, dateTo, true); }}
+              className="px-3 py-2 rounded-xl text-xs font-semibold"
+              style={{ background: '#f97316', color: '#fff' }}
+            >
+              Range
+            </button>
+          </div>
+        </div>
 
         {/* Shift info */}
         {shiftInfo && (
-          <div className="mt-3 px-3 py-2 rounded-xl text-xs" style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.15)', color: '#6b7280' }}>
-            Early &lt; {shiftInfo.earlyBefore} - On Time till {shiftInfo.onTimeTill} - Late after {shiftInfo.lateAfter}
-          </div>
+          <>
+            <div className="mt-3 px-3 py-2 rounded-xl text-xs" style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.15)', color: '#6b7280' }}>
+              Shift {fmtHHMMtoISTLabel(shiftInfo.shiftStart || rulesForm.shiftStart)} - {fmtHHMMtoISTLabel(shiftInfo.shiftEnd || rulesForm.shiftEnd)} IST | Grace {shiftInfo.graceMinutes ?? rulesForm.graceMinutes}m
+            </div>
+            <div className="mt-2 grid grid-cols-4 gap-2">
+              <input
+                type="time"
+                value={rulesForm.shiftStart}
+                onChange={e => setRulesForm(p => ({ ...p, shiftStart: e.target.value }))}
+                className="px-2 py-1.5 rounded-lg text-xs focus:outline-none"
+                style={{ background: '#ffffff', border: '1px solid #e5e7eb', color: '#374151' }}
+              />
+              <input
+                type="time"
+                value={rulesForm.shiftEnd}
+                onChange={e => setRulesForm(p => ({ ...p, shiftEnd: e.target.value }))}
+                className="px-2 py-1.5 rounded-lg text-xs focus:outline-none"
+                style={{ background: '#ffffff', border: '1px solid #e5e7eb', color: '#374151' }}
+              />
+              <input
+                type="number"
+                min={0}
+                max={180}
+                value={rulesForm.graceMinutes}
+                onChange={e => setRulesForm(p => ({ ...p, graceMinutes: Number(e.target.value) }))}
+                className="px-2 py-1.5 rounded-lg text-xs focus:outline-none"
+                style={{ background: '#ffffff', border: '1px solid #e5e7eb', color: '#374151' }}
+              />
+              <button
+                onClick={saveRules}
+                disabled={savingRules}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
+                style={{ background: '#f97316', color: '#ffffff' }}
+              >
+                {savingRules ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </>
         )}
       </div>
+
+      {(lateTrend.length > 0 || teamComparison.length > 0) && (
+        <div style={card} className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <div className="text-sm font-bold text-gray-900 mb-2">Late Trend (7 days)</div>
+            <div className="space-y-2">
+              {lateTrend.map(t => (
+                <div key={t.date} className="flex items-center gap-2 text-xs">
+                  <span style={{ color: '#6b7280', width: 70 }}>{t.date.slice(5)}</span>
+                  <div className="flex-1 h-2 rounded-full" style={{ background: '#f3f4f6' }}>
+                    <div className="h-2 rounded-full" style={{ width: `${Math.min(100, (t.late / Math.max(t.present || 1, 1)) * 100)}%`, background: '#f59e0b' }} />
+                  </div>
+                  <span style={{ color: '#f59e0b' }}>{t.late}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div>
+            <div className="text-sm font-bold text-gray-900 mb-2">Team Comparison</div>
+            <div className="space-y-2">
+              {teamComparison.map(t => (
+                <div key={t.team} className="flex items-center justify-between text-xs">
+                  <span style={{ color: '#374151' }}>{t.team}</span>
+                  <span style={{ color: '#6b7280' }}>{t.present}/{t.total} present | {t.late} late</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Employee List */}
       <div style={card} className="overflow-hidden">
@@ -204,6 +356,8 @@ export default function LiveAttendance() {
                   <div className="flex items-center gap-3 flex-shrink-0">
                     <div className="text-right">
                       <div className="text-xs" style={{ color: '#6b7280' }}>{emp.checkInTime || '--'}</div>
+                      {(emp as any).lateByMins > 0 && <div className="text-[10px]" style={{ color: '#f59e0b' }}>Late {(emp as any).lateByMins}m</div>}
+                      {(emp as any).earlyByMins > 0 && <div className="text-[10px]" style={{ color: '#10b981' }}>Early {(emp as any).earlyByMins}m</div>}
                       <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
                         style={{ background: mc.bg, color: mc.text }}>{mode}</span>
                     </div>
