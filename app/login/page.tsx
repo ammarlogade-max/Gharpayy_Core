@@ -55,7 +55,7 @@ export default function LoginPage() {
           <span className="text-2xl font-bold text-orange-500">Gharpayy</span>
         </div>
         <div className="bg-white rounded-3xl border border-gray-200 shadow-sm p-8">
-          <h2 className="text-xl font-bold text-gray-800 mb-1">Welcome back ðŸ‘‹</h2>
+          <h2 className="text-xl font-bold text-gray-800 mb-1">Welcome back‹</h2>
           <p className="text-sm text-gray-700 mb-6">Sign in to mark your attendance</p>
           {error && (
             <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-2xl p-3.5 mb-5">
