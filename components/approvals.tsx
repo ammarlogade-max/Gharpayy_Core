@@ -6,6 +6,8 @@ interface Exception {
   _id: string; employeeName: string; type: string;
   date: string; reason: string; requestedTime: string | null;
   status: string; createdAt: string;
+  source?: 'exception' | 'employee';
+  employeeId?: string;
 }
 
 const TYPE_LABEL: Record<string, { label: string; color: string; bg: string }> = {
@@ -14,6 +16,7 @@ const TYPE_LABEL: Record<string, { label: string; color: string; bg: string }> =
   manual_entry:  { label: 'Manual Entry',  color: '#6366f1', bg: 'rgba(99,102,241,0.12)'  },
   geo_failure:   { label: 'Geo Failure',   color: '#a855f7', bg: 'rgba(168,85,247,0.12)'  },
   early_exit:    { label: 'Early Exit',    color: '#10b981', bg: 'rgba(16,185,129,0.12)'  },
+  account_approval: { label: 'Account Approval', color: '#0ea5e9', bg: 'rgba(14,165,233,0.12)' },
 };
 
 const AVATAR_COLORS = ['#f97316','#6366f1','#10b981','#a855f7','#f59e0b','#ef4444'];
@@ -34,13 +37,45 @@ export default function Approvals() {
 
   const fetchData = (status = tab) => {
     setLoading(true);
-    fetch(`/api/exceptions?status=${status}`, { cache: 'no-store' })
-      .then(r => r.json())
-      .then(d => {
-        if (d.exceptions) setExceptions(d.exceptions);
-        if (status === 'pending' && d.pendingCount !== undefined) setPendingCount(d.pendingCount);
+    const exceptionReq = fetch(`/api/exceptions?status=${status}`, { cache: 'no-store' }).then(r => r.json()).catch(() => ({}));
+    const employeeReq =
+      status === 'rejected'
+        ? Promise.resolve({ ok: true, employees: [] as any[] })
+        : fetch(`/api/employees/approvals?status=${status}`, { cache: 'no-store' }).then(r => r.json()).catch(() => ({}));
+
+    Promise.all([exceptionReq, employeeReq])
+      .then(([exData, empData]) => {
+        const exceptionRows: Exception[] = Array.isArray(exData?.exceptions)
+          ? exData.exceptions.map((e: any) => ({ ...e, source: 'exception' as const }))
+          : [];
+
+        const employeeRows: Exception[] = Array.isArray(empData?.employees)
+          ? empData.employees.map((e: any) => ({
+              _id: `emp-${e._id}`,
+              employeeId: e._id,
+              employeeName: e.fullName || e.email || 'Employee',
+              type: 'account_approval',
+              date: e.createdAt ? new Date(e.createdAt).toISOString().slice(0, 10) : '-',
+              reason: `${e.email || ''}${e.officeZoneId?.name ? ` | ${e.officeZoneId.name}` : ''}${e.jobRole ? ` | ${e.jobRole}` : ''}`,
+              requestedTime: null,
+              status: e.isApproved ? 'approved' : 'pending',
+              createdAt: e.createdAt || new Date().toISOString(),
+              source: 'employee' as const,
+            }))
+          : [];
+
+        const merged = [...exceptionRows, ...employeeRows].sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+        setExceptions(merged);
+
+        if (status === 'pending') {
+          const exPending = Number(exData?.pendingCount || 0);
+          const empPending = employeeRows.filter(e => e.status === 'pending').length;
+          setPendingCount(exPending + empPending);
+        }
       })
-      .catch(() => {}).finally(() => setLoading(false));
+      .finally(() => setLoading(false));
   };
 
   useEffect(() => { fetchData(); }, []);
@@ -48,7 +83,21 @@ export default function Approvals() {
   const act = async (id: string, status: 'approved' | 'rejected') => {
     setActing(id);
     try {
-      await fetch('/api/exceptions', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ exceptionId: id, status }) });
+      if (id.startsWith('emp-')) {
+        const employeeId = id.replace('emp-', '');
+        const action = status === 'approved' ? 'approve' : 'reject';
+        await fetch('/api/employees/approvals', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ employeeId, action }),
+        });
+      } else {
+        await fetch('/api/exceptions', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ exceptionId: id, status }),
+        });
+      }
       fetchData(tab);
     } catch {} setActing(null);
   };
