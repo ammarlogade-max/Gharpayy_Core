@@ -27,7 +27,7 @@ export default function Header() {
     <header className="bg-white border-b border-gray-200">
       <div className="flex items-center justify-between px-4 py-3 md:px-6 md:py-4">
         <div className="flex items-center gap-2">
-          <img src="/logo.png" alt="Gharpayy" className="h-10 w-auto"
+          <img src="/logo.png" alt="ARENA OS" className="h-10 w-auto"
             onError={e => { (e.target as any).style.display='none'; }} />
         </div>
         {isAdmin && (

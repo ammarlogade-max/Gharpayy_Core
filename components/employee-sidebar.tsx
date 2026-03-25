@@ -1,24 +1,16 @@
 'use client';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { Clock, ClipboardList, Bell, TrendingUp, History, LogOut } from 'lucide-react';
+import { Clock, ClipboardList, Bell, TrendingUp, History, LogOut, Settings } from 'lucide-react';
+import WorkScheduleModal from '@/components/work-schedule-modal';
 
-const NAV_GROUPS = [
-  {
-    label: 'DEMAND',
-    items: [
-      { label: 'My Attendance', href: '/home', icon: Clock },
-      { label: 'My Tasks', href: '/my-tasks', icon: ClipboardList },
-      { label: 'Notices', href: '/notices', icon: Bell },
-    ],
-  },
-  {
-    label: 'SUPPLY',
-    items: [
-      { label: 'My Performance', href: '/my-performance', icon: TrendingUp },
-      { label: 'My History', href: '/my-history', icon: History },
-    ],
-  },
+const NAV_ITEMS = [
+  { label: 'My Attendance', href: '/home', icon: Clock },
+  { label: 'My Tasks', href: '/my-tasks', icon: ClipboardList },
+  { label: 'Announcements Hub', href: '/notices', icon: Bell },
+  { label: 'Performance Analytics', href: '/my-performance', icon: TrendingUp },
+  { label: 'My History', href: '/my-history', icon: History },
+  { label: 'Settings', href: '/settings', icon: Settings },
 ];
 
 function initials(name: string) {
@@ -52,52 +44,47 @@ export default function EmployeeSidebar() {
   };
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/');
-  const flatItems = NAV_GROUPS.flatMap(group => group.items);
+  const flatItems = NAV_ITEMS;
 
   return (
     <>
       <aside className="hidden md:flex flex-col w-64 min-h-screen fixed left-0 top-0 z-40 bg-white border-r border-gray-200">
         <div className="px-5 py-5 border-b border-gray-200">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white font-bold text-sm bg-orange-500">G</div>
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white font-bold text-sm bg-orange-500">A</div>
             <div>
-              <div className="text-sm font-bold text-gray-900 leading-tight">Gharpayy</div>
-              <div className="text-[11px] text-gray-700">Booking OS</div>
+              <div className="text-sm font-bold text-gray-900 leading-tight">ARENA OS</div>
+              <div className="text-[11px] text-gray-700">Attendance System</div>
             </div>
           </div>
-          <div className="text-xs text-gray-700 mt-3">Gharpayy - Booking OS</div>
+          <div className="text-xs text-gray-700 mt-3">ARENA OS</div>
         </div>
 
         <nav className="flex-1 px-3 py-4 overflow-y-auto no-scrollbar">
-          {NAV_GROUPS.map(group => (
-            <div key={group.label} className="mb-4 last:mb-0">
-              <div className="px-3 pb-2 text-[11px] font-semibold tracking-[0.14em] text-gray-400">{group.label}</div>
-              <div className="space-y-1">
-                {group.items.map(item => {
-                  const active = isActive(item.href);
-                  const isNotice = item.href === '/notices';
-                  return (
-                    <button
-                      key={item.href}
-                      onClick={() => router.push(item.href)}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition border-l-2"
-                      style={{
-                        borderLeftColor: active ? '#f97316' : 'transparent',
-                        background: active ? '#fff7ed' : 'transparent',
-                        color: active ? '#f97316' : '#374151',
-                      }}
-                    >
-                      <item.icon className="w-4 h-4 flex-shrink-0" style={{ color: active ? '#f97316' : '#6b7280' }} />
-                      <span className="text-sm font-medium flex-1">{item.label}</span>
-                      {isNotice && noticeCount > 0 && (
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-100 text-red-600">{noticeCount}</span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
+          <div className="space-y-1">
+            {NAV_ITEMS.map(item => {
+              const active = isActive(item.href);
+              const isNotice = item.href === '/notices';
+              return (
+                <button
+                  key={item.href}
+                  onClick={() => router.push(item.href)}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition border-l-2"
+                  style={{
+                    borderLeftColor: active ? '#f97316' : 'transparent',
+                    background: active ? '#fff7ed' : 'transparent',
+                    color: active ? '#f97316' : '#374151',
+                  }}
+                >
+                  <item.icon className="w-4 h-4 flex-shrink-0" style={{ color: active ? '#f97316' : '#6b7280' }} />
+                  <span className="text-sm font-medium flex-1">{item.label}</span>
+                  {isNotice && noticeCount > 0 && (
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-100 text-red-600">{noticeCount}</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </nav>
 
         <div className="p-3 border-t border-gray-200 space-y-2">
@@ -129,8 +116,8 @@ export default function EmployeeSidebar() {
       <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 px-4 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold bg-orange-500">G</div>
-            <div className="text-sm font-semibold text-gray-900">Gharpayy - Booking OS</div>
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold bg-orange-500">A</div>
+            <div className="text-sm font-semibold text-gray-900">ARENA OS</div>
           </div>
           {user && <div className="text-xs text-gray-700">{user.fullName?.split(' ')[0]}</div>}
         </div>
@@ -154,6 +141,7 @@ export default function EmployeeSidebar() {
       </div>
 
       <div className="md:hidden h-14" />
+      <WorkScheduleModal />
     </>
   );
 }

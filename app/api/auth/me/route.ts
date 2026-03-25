@@ -11,7 +11,7 @@ export async function GET() {
     const user = await getAuthUser();
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    // Static admin €” no DB record exists
+    // Static admin - no DB record exists
     if (user.id === 'admin') {
       return NextResponse.json({
         id: 'admin',
@@ -20,6 +20,8 @@ export async function GET() {
         role: 'admin',
         isApproved: true,
         jobRole: 'Administrator',
+        workSchedule: null,
+        leaves: [],
         createdAt: new Date().toISOString(),
       });
     }

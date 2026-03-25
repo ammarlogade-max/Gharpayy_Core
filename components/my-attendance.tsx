@@ -32,6 +32,7 @@ export default function MyAttendance() {
   const [att, setAtt] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [clocking, setClocking] = useState(false);
+  const [leaveSaving, setLeaveSaving] = useState(false);
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const timerRef = useRef<any>(null);
@@ -96,6 +97,26 @@ export default function MyAttendance() {
   const modeColor: Record<string, string> = { Present: '#10b981', Break: '#f59e0b', Field: '#6366f1', WFH: '#a855f7', Absent: '#9ca3af' };
 
   const breakPct = att?.totalBreakMins ? Math.min(100, Math.round((att.totalBreakMins / BREAK_LIMIT_MINS) * 100)) : 0;
+  const transparencyMsg = att?.lateByMins > 0 && att?.shiftRules?.shiftStart && att?.checkInTime
+    ? `Late by ${att.lateByMins} mins (Shift: ${att.shiftRules.shiftStart} | Clock-in: ${new Date(att.checkInTime).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: false, timeZone: 'Asia/Kolkata' })} | Grace: ${att.shiftRules.graceMinutes} mins)`
+    : '';
+  const markOffTomorrow = async () => {
+    setLeaveSaving(true);
+    try {
+      const r = await fetch('/api/leaves/off-tomorrow', { method: 'POST' });
+      const d = await r.json();
+      if (d.ok) {
+        flash('Off tomorrow marked successfully', true);
+        fetchStatus();
+      } else {
+        flash(d.error || 'Unable to mark off tomorrow', false);
+      }
+    } catch {
+      flash('Network error', false);
+    } finally {
+      setLeaveSaving(false);
+    }
+  };
 
   return (
     <div className="min-h-screen" style={{ background: '#f8f9fa' }}>
@@ -122,6 +143,9 @@ export default function MyAttendance() {
                   </span>
                 </div>
                 <div className="text-xs" style={{ color: '#6b7280' }}>{today}</div>
+                {att?.isOffToday && (
+                  <div className="text-xs mt-1 font-semibold" style={{ color: '#2563eb' }}>Off Duty</div>
+                )}
               </div>
               {att?.dayStatus && att.dayStatus !== 'Absent' && (
                 <span className="text-xs font-bold px-3 py-1.5 rounded-xl"
@@ -134,6 +158,16 @@ export default function MyAttendance() {
             {(att?.lateByMins > 0 || att?.earlyByMins > 0) && (
               <div className="text-[11px] mb-2" style={{ color: '#6b7280' }}>
                 {att.lateByMins > 0 ? `Late by ${att.lateByMins} min` : `Early by ${att.earlyByMins} min`}
+              </div>
+            )}
+            {transparencyMsg && (
+              <div className="text-[11px] mb-2" style={{ color: '#6b7280' }}>
+                {transparencyMsg}
+              </div>
+            )}
+            {att?.session?.status && (
+              <div className="text-xs mb-3 font-semibold" style={{ color: att?.isOffToday ? '#2563eb' : att.session.status === 'active' ? '#10b981' : att.session.status === 'break' ? '#f59e0b' : '#ef4444' }}>
+                {att?.isOffToday ? 'Off Duty' : att.session.status === 'active' ? 'Active Session - Work in Progress' : att.session.status === 'break' ? 'On Break' : 'Offline'}
               </div>
             )}
 
@@ -183,13 +217,32 @@ export default function MyAttendance() {
               </div>
             ) : (
               <div className="space-y-3">
+                {!att?.isOffTomorrow && (
+                  <button onClick={markOffTomorrow} disabled={leaveSaving}
+                    className="w-full py-2.5 rounded-2xl font-semibold text-xs disabled:opacity-50"
+                    style={{ background: 'rgba(37,99,235,0.1)', border: '1px solid rgba(37,99,235,0.2)', color: '#2563eb' }}>
+                    {leaveSaving ? 'Saving...' : 'Mark Off Tomorrow'}
+                  </button>
+                )}
+                {att?.isOffTomorrow && (
+                  <div className="w-full py-2.5 rounded-2xl text-xs font-semibold text-center"
+                    style={{ background: 'rgba(37,99,235,0.08)', border: '1px solid rgba(37,99,235,0.2)', color: '#2563eb' }}>
+                    Off Tomorrow Confirmed
+                  </div>
+                )}
                 {/* Not clocked in */}
-                {!att?.isCheckedIn && !att?.isOnBreak && !att?.isInField && (
+                {!att?.isCheckedIn && !att?.isOnBreak && !att?.isInField && !att?.isOffToday && (
                   <button onClick={() => doAction('/api/attendance/checkin', {})} disabled={clocking}
                     className="w-full py-3.5 rounded-2xl font-bold text-sm transition-all active:scale-95 disabled:opacity-50"
                     style={{ background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff' }}>
                     {clocking ? '...' : 'Clock In'}
                   </button>
+                )}
+                {!att?.isCheckedIn && !att?.isOnBreak && !att?.isInField && att?.isOffToday && (
+                  <div className="w-full py-3.5 rounded-2xl text-sm font-semibold text-center"
+                    style={{ background: 'rgba(37,99,235,0.1)', color: '#2563eb', border: '1px solid rgba(37,99,235,0.2)' }}>
+                    Off Duty Today
+                  </div>
                 )}
 
                 {/* Clocked in */}

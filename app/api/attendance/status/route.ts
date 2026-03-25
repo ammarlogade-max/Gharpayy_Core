@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { connectDB } from '@/lib/db';
 import Attendance from '@/models/Attendance';
+import User from '@/models/User';
 import { getAuthUser } from '@/lib/auth';
 import { autoCloseMissedClockOut, deriveStatusFromAttendance, getISTDateStr, getShiftRules, recomputeAttendanceTotals } from '@/lib/attendance-utils';
 
@@ -38,7 +39,9 @@ export async function GET() {
     await connectDB();
     await autoCloseMissedClockOut(user.id);
     const date = getISTDateStr();
+    const tomorrow = getISTDateDaysAgo(-1);
     const att = await Attendance.findOne({ employeeId: user.id, date });
+    const dbUser = await User.findById(user.id).select('workSchedule leaves').lean() as any;
     const rules = await getShiftRules();
 
     if (!att) {
@@ -59,6 +62,15 @@ export async function GET() {
         dayStatus: 'Absent',
         shiftRules: rules,
         timeline: [],
+        workSchedule: dbUser?.workSchedule || null,
+        isOffToday: Array.isArray(dbUser?.leaves) ? dbUser.leaves.some((l: any) => l.date === date && l.type === 'day_off') : false,
+        isOffTomorrow: Array.isArray(dbUser?.leaves) ? dbUser.leaves.some((l: any) => l.date === tomorrow && l.type === 'day_off') : false,
+        session: {
+          status: 'offline',
+          clockInTime: null,
+          breakStart: null,
+          breakEnd: null,
+        },
       });
     }
 
@@ -95,6 +107,10 @@ export async function GET() {
     const weekLate = weekRows.filter((r: any) => r.dayStatus === 'Late').length;
     const weekEarly = weekRows.filter((r: any) => r.dayStatus === 'Early').length;
     const weekHours = weekRows.reduce((sum: number, r: any) => sum + Number(r.totalWorkMins || 0), 0);
+    const lastBreak = [...att.sessions].reverse().find((s: any) => s.type === 'break');
+    const sessionStatus = att.isOnBreak ? 'break' : att.isCheckedIn ? 'active' : 'offline';
+    const isOffToday = Array.isArray(dbUser?.leaves) ? dbUser.leaves.some((l: any) => l.date === date && l.type === 'day_off') : false;
+    const isOffTomorrow = Array.isArray(dbUser?.leaves) ? dbUser.leaves.some((l: any) => l.date === tomorrow && l.type === 'day_off') : false;
 
     return NextResponse.json({
       isCheckedIn: att.isCheckedIn,
@@ -113,6 +129,15 @@ export async function GET() {
       sessions: att.sessions.length,
       dayStatus: att.dayStatus,
       shiftRules: rules,
+      workSchedule: dbUser?.workSchedule || null,
+      isOffToday,
+      isOffTomorrow,
+      session: {
+        status: sessionStatus,
+        clockInTime: firstWorkSession?.checkIn?.toISOString() || null,
+        breakStart: lastBreak?.checkIn ? new Date(lastBreak.checkIn).toISOString() : null,
+        breakEnd: lastBreak?.checkOut ? new Date(lastBreak.checkOut).toISOString() : null,
+      },
       timeline,
       weeklySummary: {
         startDate: weekStart,

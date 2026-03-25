@@ -9,11 +9,11 @@ interface HeatmapRow {
 }
 
 const STATUS_COLOR: Record<string, string> = {
-  'Early':    'bg-teal-700',
-  'On Time':  'bg-teal-500',
-  'Late':     'bg-yellow-400',
-  'Absent':   'bg-pink-300',
-  'Week Off': 'bg-gray-100 border border-dashed border-gray-300',
+  'Early':    'bg-emerald-600',
+  'On Time':  'bg-emerald-500',
+  'Late':     'bg-orange-400',
+  'Absent':   'bg-gray-300',
+  'Week Off': 'bg-blue-100 border border-blue-200',
   'none':     'bg-gray-200',
 };
 
@@ -141,8 +141,10 @@ export default function WeeklyHeatmap() {
                     return (
                       <div
                         key={d.date}
-                        title={isWeekOff ? 'Week Off' : status === 'none' ? '€”' : status}
+                        title={isWeekOff ? 'Week Off' : status === 'none' ? '-' : status}
                         className={`flex-1 min-w-[48px] h-10 md:h-12 rounded-lg ${STATUS_COLOR[status]} transition hover:opacity-80 ${
+                          status === 'Late' ? 'ring-2 ring-orange-500/70' : ''
+                        } ${
                           d.date === today ? 'ring-2 ring-orange-400 ring-offset-1' : ''
                         }`}
                       />
@@ -158,12 +160,18 @@ export default function WeeklyHeatmap() {
 
       {/* Legend */}
       <div className="flex flex-wrap gap-4 md:gap-6 mt-6 pt-4 border-t border-gray-200">
-        {(['Early', 'On Time', 'Late', 'Absent', 'Week Off'] as string[]).map(s => (
-          <div key={s} className="flex items-center gap-2">
-            <div className={`w-3 h-3 rounded-sm ${STATUS_COLOR[s]}`}/>
-            <span className="text-xs md:text-sm text-gray-600">{s}</span>
+        {([
+          { key: 'On Time', label: 'Present' },
+          { key: 'Late', label: 'Late' },
+          { key: 'Absent', label: 'Absent' },
+          { key: 'Week Off', label: 'Off' },
+        ] as any[]).map(s => (
+          <div key={s.key} className="flex items-center gap-2">
+            <div className={`w-3 h-3 rounded-sm ${STATUS_COLOR[s.key]}`}/>
+            <span className="text-xs md:text-sm text-gray-600">{s.label}</span>
           </div>
         ))}
+        <span className="text-xs text-gray-600">Late overlay: highlighted border</span>
       </div>
     </div>
   );

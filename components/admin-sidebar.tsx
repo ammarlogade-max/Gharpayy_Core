@@ -3,28 +3,21 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
   LayoutDashboard, Users, BarChart2, ClipboardList,
-  Bell, GitBranch, CheckSquare, FileText, LogOut, Menu, X
+  Bell, GitBranch, CheckSquare, FileText, LogOut, Menu, X, Settings, UserRound
 } from 'lucide-react';
 
-const NAV_GROUPS = [
-  {
-    label: 'DEMAND',
-    items: [
-      { label: 'Command Center', href: '/command-center', icon: LayoutDashboard },
-      { label: 'Live Attendance', href: '/live-attendance', icon: Users },
-      { label: 'Task Board', href: '/task-board', icon: ClipboardList },
-      { label: 'Notices', href: '/notices', icon: Bell },
-      { label: 'KPIs & KRAs', href: '/kpis', icon: BarChart2 },
-    ],
-  },
-  {
-    label: 'SUPPLY',
-    items: [
-      { label: 'Team Hierarchy', href: '/team-hierarchy', icon: GitBranch },
-      { label: 'Approvals', href: '/approvals', icon: CheckSquare },
-      { label: 'Reports', href: '/reports', icon: FileText },
-    ],
-  },
+const NAV_ITEMS = [
+  { label: 'Workforce Overview', href: '/command-center', icon: LayoutDashboard },
+  { label: 'Attendance Management', href: '/live-attendance', icon: Users },
+  { label: 'Task Management Console', href: '/task-board', icon: ClipboardList },
+  { label: 'Announcements Hub', href: '/notices', icon: Bell },
+  { label: 'Performance Analytics', href: '/kpis', icon: BarChart2 },
+  { label: 'Team Hierarchy', href: '/team-hierarchy', icon: GitBranch },
+  { label: 'Approval Center', href: '/approvals', icon: CheckSquare },
+  { label: 'Reports', href: '/reports', icon: FileText },
+  { label: 'Settings', href: '/settings', icon: Settings },
+  { label: 'Shift Settings', href: '/shift-settings', icon: Settings },
+  { label: 'Employee Profile', href: '/employee-profile', icon: UserRound },
 ];
 
 function initials(name: string) {
@@ -74,52 +67,47 @@ export default function AdminSidebar() {
     return 0;
   };
 
-  const flatItems = NAV_GROUPS.flatMap(group => group.items);
+  const flatItems = NAV_ITEMS;
 
   return (
     <>
       <aside className="hidden md:flex flex-col w-64 min-h-screen fixed left-0 top-0 z-40 bg-white border-r border-gray-200">
         <div className="px-5 py-5 border-b border-gray-200">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white font-bold text-sm bg-orange-500">G</div>
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white font-bold text-sm bg-orange-500">A</div>
             <div>
-              <div className="text-sm font-bold text-gray-900 leading-tight">Gharpayy</div>
-              <div className="text-[11px] text-gray-700">Booking OS</div>
+              <div className="text-sm font-bold text-gray-900 leading-tight">ARENA OS</div>
+              <div className="text-[11px] text-gray-700">Attendance System</div>
             </div>
           </div>
-          <div className="text-xs text-gray-700 mt-3">Gharpayy - Booking OS</div>
+          <div className="text-xs text-gray-700 mt-3">ARENA OS</div>
         </div>
 
         <nav className="flex-1 px-3 py-4 overflow-y-auto no-scrollbar">
-          {NAV_GROUPS.map(group => (
-            <div key={group.label} className="mb-4 last:mb-0">
-              <div className="px-3 pb-2 text-[11px] font-semibold tracking-[0.14em] text-gray-400">{group.label}</div>
-              <div className="space-y-1">
-                {group.items.map(item => {
-                  const active = isActive(item.href);
-                  const badge = getBadge(item.href);
-                  return (
-                    <button
-                      key={item.href}
-                      onClick={() => router.push(item.href)}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition border-l-2"
-                      style={{
-                        borderLeftColor: active ? '#f97316' : 'transparent',
-                        background: active ? '#fff7ed' : 'transparent',
-                        color: active ? '#f97316' : '#374151',
-                      }}
-                    >
-                      <item.icon className="w-4 h-4 flex-shrink-0" style={{ color: active ? '#f97316' : '#6b7280' }} />
-                      <span className="text-sm font-medium flex-1">{item.label}</span>
-                      {badge > 0 && (
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-100 text-red-600">{badge}</span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
+          <div className="space-y-1">
+            {NAV_ITEMS.map(item => {
+              const active = isActive(item.href);
+              const badge = getBadge(item.href);
+              return (
+                <button
+                  key={item.href}
+                  onClick={() => router.push(item.href)}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition border-l-2"
+                  style={{
+                    borderLeftColor: active ? '#f97316' : 'transparent',
+                    background: active ? '#fff7ed' : 'transparent',
+                    color: active ? '#f97316' : '#374151',
+                  }}
+                >
+                  <item.icon className="w-4 h-4 flex-shrink-0" style={{ color: active ? '#f97316' : '#6b7280' }} />
+                  <span className="text-sm font-medium flex-1">{item.label}</span>
+                  {badge > 0 && (
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-100 text-red-600">{badge}</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </nav>
 
         <div className="p-3 border-t border-gray-200 space-y-2">
@@ -153,8 +141,8 @@ export default function AdminSidebar() {
           >
             <Menu className="w-4 h-4" />
           </button>
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold bg-orange-500">G</div>
-          <div className="text-sm font-semibold text-gray-900">Gharpayy - Booking OS</div>
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold bg-orange-500">A</div>
+          <div className="text-sm font-semibold text-gray-900">ARENA OS</div>
         </div>
       </div>
 
@@ -168,8 +156,8 @@ export default function AdminSidebar() {
           <aside className="absolute left-0 top-0 h-full w-72 bg-white border-r border-gray-200 flex flex-col">
             <div className="px-4 py-4 border-b border-gray-200 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold bg-orange-500">G</div>
-                <div className="text-sm font-semibold text-gray-900">Gharpayy - Booking OS</div>
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold bg-orange-500">A</div>
+                <div className="text-sm font-semibold text-gray-900">ARENA OS</div>
               </div>
               <button
                 onClick={() => setMobileMenuOpen(false)}
@@ -181,38 +169,33 @@ export default function AdminSidebar() {
             </div>
 
             <nav className="flex-1 px-3 py-4 overflow-y-auto no-scrollbar">
-              {NAV_GROUPS.map(group => (
-                <div key={group.label} className="mb-4 last:mb-0">
-                  <div className="px-3 pb-2 text-[11px] font-semibold tracking-[0.14em] text-gray-400">{group.label}</div>
-                  <div className="space-y-1">
-                    {group.items.map(item => {
-                      const active = isActive(item.href);
-                      const badge = getBadge(item.href);
-                      return (
-                        <button
-                          key={item.href}
-                          onClick={() => {
-                            router.push(item.href);
-                            setMobileMenuOpen(false);
-                          }}
-                          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition border-l-2"
-                          style={{
-                            borderLeftColor: active ? '#f97316' : 'transparent',
-                            background: active ? '#fff7ed' : 'transparent',
-                            color: active ? '#f97316' : '#374151',
-                          }}
-                        >
-                          <item.icon className="w-4 h-4 flex-shrink-0" style={{ color: active ? '#f97316' : '#6b7280' }} />
-                          <span className="text-sm font-medium flex-1">{item.label}</span>
-                          {badge > 0 && (
-                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-100 text-red-600">{badge}</span>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
+              <div className="space-y-1">
+                {NAV_ITEMS.map(item => {
+                  const active = isActive(item.href);
+                  const badge = getBadge(item.href);
+                  return (
+                    <button
+                      key={item.href}
+                      onClick={() => {
+                        router.push(item.href);
+                        setMobileMenuOpen(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition border-l-2"
+                      style={{
+                        borderLeftColor: active ? '#f97316' : 'transparent',
+                        background: active ? '#fff7ed' : 'transparent',
+                        color: active ? '#f97316' : '#374151',
+                      }}
+                    >
+                      <item.icon className="w-4 h-4 flex-shrink-0" style={{ color: active ? '#f97316' : '#6b7280' }} />
+                      <span className="text-sm font-medium flex-1">{item.label}</span>
+                      {badge > 0 && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-100 text-red-600">{badge}</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
             </nav>
 
             <div className="p-3 border-t border-gray-200 space-y-2">

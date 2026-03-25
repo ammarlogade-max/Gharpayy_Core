@@ -5,7 +5,7 @@ import User from '@/models/User';
 
 export async function POST(req: NextRequest) {
   try {
-    const { fullName, email, password, dateOfBirth, jobRole, profilePhoto, officeZoneId } = await req.json();
+    const { fullName, email, password, dateOfBirth, jobRole, profilePhoto, officeZoneId, workStartTime, workEndTime, breakDuration } = await req.json();
 
     // Validation
     if (!fullName?.trim()) return NextResponse.json({ error: 'Full name required' }, { status: 400 });
@@ -14,6 +14,10 @@ export async function POST(req: NextRequest) {
     if (!dateOfBirth) return NextResponse.json({ error: 'Date of birth required' }, { status: 400 });
     if (!jobRole) return NextResponse.json({ error: 'Job role required' }, { status: 400 });
     if (!officeZoneId) return NextResponse.json({ error: 'Office zone required' }, { status: 400 });
+    if (!workStartTime || !/^\d{2}:\d{2}$/.test(workStartTime)) return NextResponse.json({ error: 'Valid work start time required' }, { status: 400 });
+    if (!workEndTime || !/^\d{2}:\d{2}$/.test(workEndTime)) return NextResponse.json({ error: 'Valid work end time required' }, { status: 400 });
+    const breakMins = Number(breakDuration);
+    if (!Number.isFinite(breakMins) || breakMins < 0 || breakMins > 240) return NextResponse.json({ error: 'Valid break duration required' }, { status: 400 });
 
     await connectDB();
 
@@ -35,6 +39,13 @@ export async function POST(req: NextRequest) {
       officeZoneId,
       isApproved: false, // waiting for admin approval
       role: 'employee',
+      workSchedule: {
+        startTime: workStartTime,
+        endTime: workEndTime,
+        breakDuration: breakMins,
+        isLocked: true,
+        setBy: 'employee',
+      },
     });
 
     return NextResponse.json({

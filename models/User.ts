@@ -13,9 +13,35 @@ export interface IUser extends Document {
   managerId?: mongoose.Types.ObjectId;
   teamName?: string;
   department?: string;
+  workSchedule?: {
+    startTime: string;
+    endTime: string;
+    breakDuration: number;
+    isLocked: boolean;
+    setBy: 'employee' | 'admin';
+  };
+  leaves?: {
+    date: string;
+    type: 'day_off';
+    status: 'approved';
+  }[];
   createdAt: Date;
   updatedAt: Date;
 }
+
+const WorkScheduleSchema = new Schema({
+  startTime:     { type: String, default: '' },
+  endTime:       { type: String, default: '' },
+  breakDuration: { type: Number, default: 0 },
+  isLocked:      { type: Boolean, default: false },
+  setBy:         { type: String, enum: ['employee', 'admin'], default: 'employee' },
+}, { _id: false });
+
+const LeaveSchema = new Schema({
+  date:   { type: String, required: true },
+  type:   { type: String, enum: ['day_off'], default: 'day_off' },
+  status: { type: String, enum: ['approved'], default: 'approved' },
+}, { _id: false });
 
 const UserSchema = new Schema<IUser>({
   fullName:     { type: String, required: true, trim: true },
@@ -30,6 +56,8 @@ const UserSchema = new Schema<IUser>({
   managerId:    { type: Schema.Types.ObjectId, ref: 'GpAttUser', default: null },
   teamName:     { type: String, default: '' },
   department:   { type: String, default: '' },
+  workSchedule: { type: WorkScheduleSchema, default: () => ({}) },
+  leaves:       { type: [LeaveSchema], default: [] },
   createdAt:    { type: Date, default: Date.now },
   updatedAt:    { type: Date, default: Date.now },
 });

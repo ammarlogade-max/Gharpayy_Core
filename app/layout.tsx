@@ -1,12 +1,12 @@
-import type { Metadata } from 'next'
+﻿import type { Metadata } from 'next'
 import { DM_Sans } from 'next/font/google'
 import './globals.css'
 
 const dmSans = DM_Sans({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Gharpayy Attendance',
-  description: 'Employee Attendance System €” Gharpayy',
+  title: 'ARENA OS Attendance',
+  description: 'Employee Attendance System - ARENA OS',
 }
 
 export default function RootLayout({
@@ -22,4 +22,3 @@ export default function RootLayout({
     </html>
   )
 }
-

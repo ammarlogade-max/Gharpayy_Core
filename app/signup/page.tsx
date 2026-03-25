@@ -28,6 +28,9 @@ export default function SignupPage() {
   const [officeZoneId, setOfficeZoneId] = useState('');
   const [profilePhoto, setProfilePhoto] = useState('');
   const [zoneLoading, setZoneLoading] = useState(true);
+  const [workStartTime, setWorkStartTime] = useState('10:00');
+  const [workEndTime, setWorkEndTime] = useState('19:00');
+  const [breakDuration, setBreakDuration] = useState(45);
 
   // Fetch office zones
   useEffect(() => {
@@ -82,6 +85,9 @@ export default function SignupPage() {
   const validateStep2 = () => {
     if (!dateOfBirth) { setError('Date of birth required'); return false; }
     if (!jobRole) { setError('Job role required'); return false; }
+    if (!workStartTime) { setError('Work start time required'); return false; }
+    if (!workEndTime) { setError('Work end time required'); return false; }
+    if (!Number.isFinite(Number(breakDuration)) || Number(breakDuration) < 0) { setError('Valid break duration required'); return false; }
     return true;
   };
 
@@ -121,6 +127,9 @@ export default function SignupPage() {
           jobRole,
           officeZoneId,
           profilePhoto,
+          workStartTime,
+          workEndTime,
+          breakDuration,
         }),
       });
 
@@ -130,7 +139,7 @@ export default function SignupPage() {
         return;
       }
 
-      setSuccess('œ“ Signup successful! Please wait for admin approval to access the system.');
+      setSuccess('Signup successful! Please wait for admin approval to access ARENA OS.');
       setTimeout(() => router.push('/login'), 3000);
     } catch {
       setError('Network error. Please try again.');
@@ -144,8 +153,8 @@ export default function SignupPage() {
       <div className="w-full max-w-sm">
         {/* Header */}
         <div className="flex items-center justify-center gap-2.5 mb-8">
-          <img src="/logo.png" alt="Gharpayy" className="h-20 w-auto" onError={e => { (e.target as any).style.display = 'none'; }} />
-          <span className="text-2xl font-bold text-orange-500">Gharpayy</span>
+          <img src="/logo.png" alt="ARENA OS" className="h-20 w-auto" onError={e => { (e.target as any).style.display = 'none'; }} />
+          <span className="text-2xl font-bold text-orange-500">ARENA OS</span>
         </div>
 
         {/* Progress indicator */}
@@ -179,7 +188,7 @@ export default function SignupPage() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
                   <input type="email" value={email} onChange={e => { setEmail(e.target.value); setError(''); }}
-                    placeholder="you@gharpayy.com" className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 transition" />
+                    placeholder="you@arenaos.com" className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 transition" />
                 </div>
 
                 <div>
@@ -187,7 +196,7 @@ export default function SignupPage() {
                   <div className="relative">
                     <input type={showPass ? 'text' : 'password'} value={password}
                       onChange={e => { setPassword(e.target.value); setError(''); }}
-                      placeholder="€¢€¢€¢€¢€¢€¢€¢€¢" className="w-full border border-gray-200 rounded-xl px-4 py-3 pr-11 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 transition" />
+                      placeholder="********" className="w-full border border-gray-200 rounded-xl px-4 py-3 pr-11 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 transition" />
                     <button type="button" onClick={() => setShowPass(p => !p)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
                       {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -199,7 +208,7 @@ export default function SignupPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">Confirm Password</label>
                   <input type="password" value={confirmPassword}
                     onChange={e => { setConfirmPassword(e.target.value); setError(''); }}
-                    placeholder="€¢€¢€¢€¢€¢€¢€¢€¢" className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 transition" />
+                    placeholder="********" className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 transition" />
                 </div>
 
                 <div className="flex gap-3 mt-6">
@@ -250,6 +259,26 @@ export default function SignupPage() {
                   </div>
                 </div>
 
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Work Start Time</label>
+                    <input type="time" value={workStartTime} onChange={e => { setWorkStartTime(e.target.value); setError(''); }}
+                      className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 transition" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Work End Time</label>
+                    <input type="time" value={workEndTime} onChange={e => { setWorkEndTime(e.target.value); setError(''); }}
+                      className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 transition" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Break Duration (minutes)</label>
+                  <input type="number" min={0} max={240} value={breakDuration}
+                    onChange={e => { setBreakDuration(Number(e.target.value)); setError(''); }}
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 transition" />
+                </div>
+
                 <div className="flex gap-3 mt-6">
                   <button type="button" onClick={handlePrevStep}
                     className="flex-1 border border-gray-300 text-gray-700 py-3 rounded-xl font-semibold text-sm hover:bg-gray-50 transition">
@@ -293,7 +322,7 @@ export default function SignupPage() {
                     </div>
                   ) : zones.length === 0 ? (
                     <div className="w-full border border-red-200 rounded-xl px-4 py-3 text-sm bg-red-50 text-red-600">
-                      š ï¸ No zones available. Please contact admin.
+                      No zones available. Please contact admin.
                     </div>
                   ) : (
                     <select value={officeZoneId} onChange={e => { setOfficeZoneId(e.target.value); setError(''); }}
@@ -319,7 +348,7 @@ export default function SignupPage() {
                   {profilePhotoPreview && (
                     <div className="mt-3 flex items-center gap-3">
                       <img src={profilePhotoPreview} alt="Preview" className="w-16 h-16 rounded-lg object-cover border border-gray-200" />
-                      <span className="text-sm text-green-600">œ“ Photo uploaded</span>
+                      <span className="text-sm text-green-600">Photo uploaded</span>
                     </div>
                   )}
                 </div>

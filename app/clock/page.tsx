@@ -34,9 +34,9 @@ export default async function ClockPage() {
         <div className="flex items-center px-4 py-3 max-w-lg mx-auto">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">G</span>
+              <span className="text-white font-bold text-sm">A</span>
             </div>
-            <span className="text-lg font-bold text-orange-500">Gharpayy</span>
+            <span className="text-lg font-bold text-orange-500">ARENA OS</span>
           </div>
         </div>
       </header>
