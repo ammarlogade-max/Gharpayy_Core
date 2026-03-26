@@ -74,7 +74,7 @@ export default function AdminSidebar() {
       <aside className="hidden md:flex flex-col w-64 min-h-screen fixed left-0 top-0 z-40 bg-white border-r border-gray-200">
         <div className="px-5 py-5 border-b border-gray-200">
           <div className="flex items-center gap-3">
-            <img src="/logo.png" alt="Gharpayy" className="w-18 h-18 rounded-xl object-cover" />
+            <img src="/logo.png" alt="Gharpayy" className="w-11 h-11 rounded-xl object-cover" />
             <div>
               <div className="text-sm font-bold text-gray-900 leading-tight">Gharpayy</div>
               <div className="text-[11px] text-orange-500 font-semibold">ARENA OS</div>
