@@ -1,7 +1,7 @@
 'use client';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { Clock, ClipboardList, Bell, TrendingUp, History, LogOut, Settings } from 'lucide-react';
+import { Clock, ClipboardList, Bell, TrendingUp, History, LogOut, Settings, Menu, X } from 'lucide-react';
 import WorkScheduleModal from '@/components/work-schedule-modal';
 
 const NAV_ITEMS = [
@@ -28,6 +28,7 @@ export default function EmployeeSidebar() {
   const pathname = usePathname();
   const [user, setUser] = useState<any>(null);
   const [noticeCount, setNoticeCount] = useState(0);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     fetch('/api/auth/me', { cache: 'no-store' })
@@ -44,8 +45,6 @@ export default function EmployeeSidebar() {
   };
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/');
-  const flatItems = NAV_ITEMS;
-
   return (
     <>
       <aside className="hidden md:flex flex-col w-64 min-h-screen fixed left-0 top-0 z-40 bg-white border-r border-gray-200">
@@ -119,28 +118,46 @@ export default function EmployeeSidebar() {
             <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold bg-orange-500">A</div>
             <div className="text-sm font-semibold text-gray-900">ARENA OS</div>
           </div>
-          {user && <div className="text-xs text-gray-700">{user.fullName?.split(' ')[0]}</div>}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={logout}
+              className="flex items-center gap-1.5 text-xs text-gray-700 hover:text-orange-500 border border-gray-200 rounded-lg px-2.5 py-1.5 transition"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              Logout
+            </button>
+            <button
+              onClick={() => setMobileMenuOpen(v => !v)}
+              className="text-gray-600 hover:text-gray-800 border border-gray-200 rounded-lg p-2 transition"
+              aria-label="Toggle menu"
+            >
+              {mobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 grid grid-cols-5 bg-white border-t border-gray-200" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-        {flatItems.map(item => {
-          const active = isActive(item.href);
-          return (
-            <button
-              key={item.href}
-              onClick={() => router.push(item.href)}
-              className="flex flex-col items-center justify-center gap-0.5 py-3"
-              style={{ color: active ? '#f97316' : '#6b7280' }}
-            >
-              <item.icon className="w-4 h-4" strokeWidth={active ? 2.2 : 1.8} />
-              <span className="text-[9px] font-medium">{item.label.split(' ')[1] || item.label.split(' ')[0]}</span>
-            </button>
-          );
-        })}
-      </div>
+      {mobileMenuOpen && (
+        <div className="md:hidden fixed top-[57px] left-0 right-0 z-50 bg-white border-b border-gray-200 shadow-sm">
+          {NAV_ITEMS.map(item => {
+            const active = isActive(item.href);
+            return (
+              <button
+                key={item.href}
+                onClick={() => { router.push(item.href); setMobileMenuOpen(false); }}
+                className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium transition text-left ${
+                  active ? 'bg-orange-50 text-orange-600 border-l-4 border-orange-500' : 'text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                <item.icon className="w-4 h-4" />
+                {item.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
-      <div className="md:hidden h-14" />
+      <div className="md:hidden h-4" />
       <WorkScheduleModal />
     </>
   );

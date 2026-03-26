@@ -16,18 +16,22 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     const { email, password } = loginSchema.parse(body);
+    const normEmail = String(email).trim().toLowerCase();
+    const normPass = String(password).trim();
+    const adminEmail = String(process.env.ADMIN_EMAIL || '').trim().toLowerCase();
+    const adminPass = String(process.env.ADMIN_PASSWORD || '').trim();
 
     await connectDB();
 
     // Admin static check
-    if (email === process.env.ADMIN_EMAIL && password === process.env.ADMIN_PASSWORD) {
-      const token = signToken({ id: 'admin', email, fullName: 'Admin', role: 'admin' });
-      const res = NextResponse.json({ ok: true, user: { id: 'admin', email, fullName: 'Admin', role: 'admin' } });
+    if (adminEmail && adminPass && normEmail === adminEmail && normPass === adminPass) {
+      const token = signToken({ id: 'admin', email: normEmail, fullName: 'Admin', role: 'admin' });
+      const res = NextResponse.json({ ok: true, user: { id: 'admin', email: normEmail, fullName: 'Admin', role: 'admin' } });
       res.cookies.set(COOKIE_NAME, token, COOKIE_OPTIONS);
       return res;
     }
 
-    const user = await User.findOne({ email: email.toLowerCase() });
+    const user = await User.findOne({ email: normEmail });
     if (!user) return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
 
     const valid = await bcrypt.compare(password, user.password);
