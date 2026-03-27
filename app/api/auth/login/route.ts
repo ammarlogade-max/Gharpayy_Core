@@ -16,13 +16,14 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json().catch(() => ({}));
     const rawEmail = typeof body?.email === 'string' ? body.email : '';
-    const rawPass = typeof body?.password === 'string' ? body.password : '';
+    const rawPass  = typeof body?.password === 'string' ? body.password : '';
     const normEmail = String(rawEmail).trim().toLowerCase();
-    const normPass = String(rawPass).trim();
-    const adminEmail = String(process.env.ADMIN_EMAIL || '').trim().toLowerCase();
-    const adminPass = String(process.env.ADMIN_PASSWORD || '').trim();
+    const normPass  = String(rawPass).trim();
 
-    // Admin static check
+    const adminEmail = String(process.env.ADMIN_EMAIL || '').trim().toLowerCase();
+    const adminPass  = String(process.env.ADMIN_PASSWORD || '').trim();
+
+    // Admin static check (unchanged)
     if (adminEmail && adminPass && normEmail === adminEmail && normPass === adminPass) {
       const token = signToken({ id: 'admin', email: normEmail, fullName: 'Admin', role: 'admin' });
       const res = NextResponse.json({ ok: true, user: { id: 'admin', email: normEmail, fullName: 'Admin', role: 'admin' } });
@@ -32,24 +33,49 @@ export async function POST(req: NextRequest) {
 
     // Non-admin: enforce schema
     const { email, password } = loginSchema.parse({ email: normEmail, password: normPass });
-
     await connectDB();
-
     const user = await User.findOne({ email: email.toLowerCase() });
     if (!user) return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
 
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
 
-    // Check if employee is approved
+    // Check if employee is approved (unchanged)
     if (user.role === 'employee' && !user.isApproved) {
       return NextResponse.json({ error: 'Your account is pending admin approval' }, { status: 403 });
     }
 
-    const token = signToken({ id: user._id.toString(), email: user.email, fullName: user.fullName, role: user.role });
-    const res = NextResponse.json({ ok: true, user: { id: user._id.toString(), email: user.email, fullName: user.fullName, role: user.role } });
+    // Build token payload
+    // sub_admin: include assignedTeamId so API routes can enforce team scoping
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const tokenPayload: Record<string, any> = {
+      id:       user._id.toString(),
+      email:    user.email,
+      fullName: user.fullName,
+      role:     user.role,
+    };
+    if (user.role === 'sub_admin' && user.assignedTeamId) {
+      tokenPayload.assignedTeamId = user.assignedTeamId.toString();
+    }
+
+    const token = signToken(tokenPayload);
+
+    // Build response payload (mirror token payload for client)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const userResponse: Record<string, any> = {
+      id:       user._id.toString(),
+      email:    user.email,
+      fullName: user.fullName,
+      role:     user.role,
+    };
+    if (user.role === 'sub_admin' && user.assignedTeamId) {
+      userResponse.assignedTeamId = user.assignedTeamId.toString();
+    }
+
+    const res = NextResponse.json({ ok: true, user: userResponse });
     res.cookies.set(COOKIE_NAME, token, COOKIE_OPTIONS);
     return res;
+
   } catch (e: unknown) {
     if (e instanceof ZodError) {
       return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
