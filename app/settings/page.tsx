@@ -8,7 +8,11 @@ export default async function SettingsPage() {
   const user = await getAuthUser();
   if (!user) redirect('/login');
 
-  if (user.role === 'admin' || user.role === 'manager') {
+  if (user.role === 'manager') {
+    redirect('/command-center');
+  }
+
+  if (user.role === 'admin') {
     return <AdminLayout><WorkScheduleSettings /></AdminLayout>;
   }
 
@@ -23,4 +27,3 @@ export default async function SettingsPage() {
     </div>
   );
 }
-

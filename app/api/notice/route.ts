@@ -19,8 +19,19 @@ export async function GET() {
 
     let notices;
     if (isManager) {
-      // Managers see all notices they created + all general notices
-      notices = await Notice.find({}).sort({ createdAt: -1 }).limit(NOTICE_LIMIT);
+      if (user.role === 'manager') {
+        const teamEmployees = await User.find({ managerId: user.id, role: 'employee' }, '_id').lean();
+        const teamIds = teamEmployees.map(e => e._id.toString());
+        notices = await Notice.find({
+          $or: [
+            { targetId: null },
+            { targetId: { $in: teamIds } },
+            { createdBy: user.id },
+          ],
+        }).sort({ createdAt: -1 }).limit(NOTICE_LIMIT);
+      } else {
+        notices = await Notice.find({}).sort({ createdAt: -1 }).limit(NOTICE_LIMIT);
+      }
     } else {
       // Employees see notices targeting them or all employees
       notices = await Notice.find({
@@ -84,6 +95,9 @@ export async function POST(req: NextRequest) {
     let targetName = null;
     if (targetId) {
       const target = await User.findById(targetId);
+      if (user.role === 'manager' && target?.managerId?.toString() !== user.id) {
+        return NextResponse.json({ error: 'Cannot create notice outside your team' }, { status: 403 });
+      }
       targetName = target?.fullName || null;
     }
 
@@ -116,6 +130,11 @@ export async function DELETE(req: NextRequest) {
     const { id } = await req.json();
     if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 });
     await connectDB();
+    const notice = await Notice.findById(id);
+    if (!notice) return NextResponse.json({ error: 'Notice not found' }, { status: 404 });
+    if (user.role === 'manager' && notice.createdBy !== user.id) {
+      return NextResponse.json({ error: 'Cannot delete notice outside your team' }, { status: 403 });
+    }
     const deleted = await Notice.findByIdAndDelete(id);
     if (!deleted) return NextResponse.json({ error: 'Notice not found' }, { status: 404 });
     return NextResponse.json({ ok: true });

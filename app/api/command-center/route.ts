@@ -93,12 +93,15 @@ export async function GET() {
       return (o[a.workMode] ?? 4) - (o[b.workMode] ?? 4);
     });
 
-    // Tasks - sub_admin sees only their team's tasks
+    // Tasks - sub_admin sees only their team's tasks; manager sees their team employees
     const taskSummary = { blocked: 0, overdue: 0, total: 0, completed: 0 };
     try {
-      const taskFilter = isSubAdmin(user) && user.assignedTeamId
-        ? { teamId: user.assignedTeamId }
-        : {};
+      const taskFilter =
+        user.role === 'manager'
+          ? { assignedTo: { $in: employees.map(e => e._id) } }
+          : isSubAdmin(user) && user.assignedTeamId
+            ? { teamId: user.assignedTeamId }
+            : {};
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const tasks = await Task.find(taskFilter).lean() as any[];
       taskSummary.total     = tasks.length;
@@ -110,10 +113,16 @@ export async function GET() {
       taskSummary.completed = tasks.filter((t: any) => t.status === 'completed').length;
     } catch { /* ignore */ }
 
-    // Pending approvals - sub_admin sees only their team's exceptions
+    // Pending approvals - sub_admin sees only their team's exceptions; manager sees their team employees
     let pendingApprovals = 0;
     try {
-      if (isSubAdmin(user) && user.assignedTeamId) {
+      if (user.role === 'manager') {
+        const teamEmployeeIds = employees.map(e => e._id);
+        pendingApprovals = await ExceptionRequest.countDocuments({
+          status: 'pending',
+          employeeId: { $in: teamEmployeeIds },
+        });
+      } else if (isSubAdmin(user) && user.assignedTeamId) {
         const teamEmployeeIds = employees.map(e => e._id);
         pendingApprovals = await ExceptionRequest.countDocuments({
           status: 'pending',

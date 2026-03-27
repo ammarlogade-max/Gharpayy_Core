@@ -91,6 +91,7 @@ export default function LiveAttendance() {
   const [managers, setManagers] = useState<Manager[]>([]);
   const [lateTrend, setLateTrend] = useState<{ date: string; late: number; present: number }[]>([]);
   const [teamComparison, setTeamComparison] = useState<{ team: string; total: number; present: number; late: number }[]>([]);
+  const [userRole, setUserRole] = useState('');
 
   const fetchData = useCallback((date = selectedDate, zone = selectedZone, manager = selectedManager, status = statusFilter, from = dateFrom, to = dateTo, useRange = rangeMode) => {
     setLoading(true);
@@ -137,6 +138,7 @@ export default function LiveAttendance() {
         graceMinutes: Number(d.rules.graceMinutes || 15),
       });
     }).catch(() => {});
+    fetch('/api/auth/me').then(r => r.json()).then(d => { if (d?.role) setUserRole(d.role); }).catch(() => {});
     const interval = setInterval(() => fetchData(), 60000);
     return () => clearInterval(interval);
   }, []);
@@ -219,13 +221,15 @@ export default function LiveAttendance() {
           </select>
         </div>
         <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2">
-          <select value={selectedManager}
-            onChange={e => { setSelectedManager(e.target.value); fetchData(selectedDate, selectedZone, e.target.value, statusFilter, dateFrom, dateTo, rangeMode); }}
-            className="px-3 py-2 rounded-xl text-xs focus:outline-none"
-            style={{ background: '#f9fafb', border: '1px solid #e5e7eb', color: '#4b5563' }}>
-            <option value="">All Managers</option>
-            {managers.map(m => <option key={m._id} value={m._id}>{m.fullName}</option>)}
-          </select>
+          {userRole !== 'manager' && (
+            <select value={selectedManager}
+              onChange={e => { setSelectedManager(e.target.value); fetchData(selectedDate, selectedZone, e.target.value, statusFilter, dateFrom, dateTo, rangeMode); }}
+              className="px-3 py-2 rounded-xl text-xs focus:outline-none"
+              style={{ background: '#f9fafb', border: '1px solid #e5e7eb', color: '#4b5563' }}>
+              <option value="">All Managers</option>
+              {managers.map(m => <option key={m._id} value={m._id}>{m.fullName}</option>)}
+            </select>
+          )}
           <select value={statusFilter}
             onChange={e => { setStatusFilter(e.target.value); fetchData(selectedDate, selectedZone, selectedManager, e.target.value, dateFrom, dateTo, rangeMode); }}
             className="px-3 py-2 rounded-xl text-xs focus:outline-none"
@@ -259,39 +263,41 @@ export default function LiveAttendance() {
             <div className="mt-3 px-3 py-2 rounded-xl text-xs" style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.15)', color: '#6b7280' }}>
               Shift {fmtHHMMtoISTLabel(shiftInfo.shiftStart || rulesForm.shiftStart)} - {fmtHHMMtoISTLabel(shiftInfo.shiftEnd || rulesForm.shiftEnd)} IST | Grace {shiftInfo.graceMinutes ?? rulesForm.graceMinutes}m
             </div>
-            <div className="mt-2 grid grid-cols-4 gap-2">
-              <input
-                type="time"
-                value={rulesForm.shiftStart}
-                onChange={e => setRulesForm(p => ({ ...p, shiftStart: e.target.value }))}
-                className="px-2 py-1.5 rounded-lg text-xs focus:outline-none"
-                style={{ background: '#ffffff', border: '1px solid #e5e7eb', color: '#374151' }}
-              />
-              <input
-                type="time"
-                value={rulesForm.shiftEnd}
-                onChange={e => setRulesForm(p => ({ ...p, shiftEnd: e.target.value }))}
-                className="px-2 py-1.5 rounded-lg text-xs focus:outline-none"
-                style={{ background: '#ffffff', border: '1px solid #e5e7eb', color: '#374151' }}
-              />
-              <input
-                type="number"
-                min={0}
-                max={180}
-                value={rulesForm.graceMinutes}
-                onChange={e => setRulesForm(p => ({ ...p, graceMinutes: Number(e.target.value) }))}
-                className="px-2 py-1.5 rounded-lg text-xs focus:outline-none"
-                style={{ background: '#ffffff', border: '1px solid #e5e7eb', color: '#374151' }}
-              />
-              <button
-                onClick={saveRules}
-                disabled={savingRules}
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
-                style={{ background: '#f97316', color: '#ffffff' }}
-              >
-                {savingRules ? 'Saving...' : 'Save'}
-              </button>
-            </div>
+            {userRole === 'admin' && (
+              <div className="mt-2 grid grid-cols-4 gap-2">
+                <input
+                  type="time"
+                  value={rulesForm.shiftStart}
+                  onChange={e => setRulesForm(p => ({ ...p, shiftStart: e.target.value }))}
+                  className="px-2 py-1.5 rounded-lg text-xs focus:outline-none"
+                  style={{ background: '#ffffff', border: '1px solid #e5e7eb', color: '#374151' }}
+                />
+                <input
+                  type="time"
+                  value={rulesForm.shiftEnd}
+                  onChange={e => setRulesForm(p => ({ ...p, shiftEnd: e.target.value }))}
+                  className="px-2 py-1.5 rounded-lg text-xs focus:outline-none"
+                  style={{ background: '#ffffff', border: '1px solid #e5e7eb', color: '#374151' }}
+                />
+                <input
+                  type="number"
+                  min={0}
+                  max={180}
+                  value={rulesForm.graceMinutes}
+                  onChange={e => setRulesForm(p => ({ ...p, graceMinutes: Number(e.target.value) }))}
+                  className="px-2 py-1.5 rounded-lg text-xs focus:outline-none"
+                  style={{ background: '#ffffff', border: '1px solid #e5e7eb', color: '#374151' }}
+                />
+                <button
+                  onClick={saveRules}
+                  disabled={savingRules}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
+                  style={{ background: '#f97316', color: '#ffffff' }}
+                >
+                  {savingRules ? 'Saving...' : 'Save'}
+                </button>
+              </div>
+            )}
           </>
         )}
       </div>

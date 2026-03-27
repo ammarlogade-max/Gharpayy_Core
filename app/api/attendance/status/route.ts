@@ -37,6 +37,47 @@ export async function GET() {
     const user = await getAuthUser();
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+    if (user.id === 'admin') {
+      const date = getISTDateStr();
+      const tomorrow = getISTDateDaysAgo(-1);
+      return NextResponse.json({
+        isCheckedIn: false,
+        isOnBreak: false,
+        isInField: false,
+        workMode: 'Absent',
+        checkInTime: null,
+        checkOutTime: null,
+        totalWorkMins: 0,
+        totalBreakMins: 0,
+        totalWorkFormatted: '0m',
+        totalBreakFormatted: '0m',
+        lateByMins: 0,
+        earlyByMins: 0,
+        sessions: 0,
+        dayStatus: 'Absent',
+        shiftRules: await getShiftRules(),
+        timeline: [],
+        workSchedule: null,
+        isOffToday: false,
+        isOffTomorrow: false,
+        session: {
+          status: 'offline',
+          clockInTime: null,
+          breakStart: null,
+          breakEnd: null,
+        },
+        weeklySummary: {
+          startDate: getISTDateDaysAgo(6),
+          endDate: date,
+          presentDays: 0,
+          lateDays: 0,
+          earlyDays: 0,
+          totalWorkMins: 0,
+          totalWorkFormatted: '0m',
+        },
+      });
+    }
+
     await connectDB();
     const date = getISTDateStr();
     const tomorrow = getISTDateDaysAgo(-1);

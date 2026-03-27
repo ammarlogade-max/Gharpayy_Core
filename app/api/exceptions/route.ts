@@ -23,6 +23,13 @@ export async function GET(req: NextRequest) {
     if (user.role === 'employee' && mongoose.Types.ObjectId.isValid(user.id)) {
       // Employee: only their own exceptions (unchanged)
       query.employeeId = new mongoose.Types.ObjectId(user.id);
+    } else if (user.role === 'manager') {
+      const teamEmployees = await User.find(
+        { managerId: user.id, role: 'employee', isApproved: true },
+        '_id'
+      ).lean();
+      const teamIds = teamEmployees.map(e => e._id);
+      query.employeeId = { $in: teamIds };
     } else if (isSubAdmin(user) && user.assignedTeamId) {
       // sub_admin: only exceptions from their team's employees
       const teamEmployees = await User.find(
@@ -96,8 +103,20 @@ export async function PATCH(req: NextRequest) {
 
     await connectDB();
 
+    // manager: verify exception belongs to their team
+    if (user.role === 'manager') {
+      const exc = await ExceptionRequest.findById(exceptionId).lean();
+      if (!exc) return NextResponse.json({ error: 'Exception not found' }, { status: 404 });
+      const emp = await User.findById((exc as any).employeeId).lean();
+      if (!emp) return NextResponse.json({ error: 'Employee not found' }, { status: 404 });
+      const mgr = (emp as any).managerId?.toString();
+      if (mgr !== user.id) {
+        return NextResponse.json({ error: 'Cannot approve exception outside your team' }, { status: 403 });
+      }
+    }
+
     // sub_admin: verify the exception belongs to one of their team's employees
-    if (isSubAdmin(user) && user.assignedTeamId) {
+    if (isSubAdmin(user) && user.role !== 'manager' && user.assignedTeamId) {
       const exc = await ExceptionRequest.findById(exceptionId).lean();
       if (!exc) return NextResponse.json({ error: 'Exception not found' }, { status: 404 });
 

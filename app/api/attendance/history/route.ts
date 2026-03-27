@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/db';
 import Attendance from '@/models/Attendance';
+import User from '@/models/User';
 import { getAuthUser } from '@/lib/auth';
 import { getISTDateStr } from '@/lib/attendance-utils';
 
@@ -31,6 +32,13 @@ export async function GET(req: NextRequest) {
     const range = start && end ? { start, end } : getMonthRange(month || undefined);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if (user.role === 'manager' && employeeId !== user.id) {
+      const emp = await User.findById(employeeId).select('managerId').lean() as any;
+      if (!emp || emp.managerId?.toString() !== user.id) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+      }
+    }
+
     const rows = await Attendance.find({
       employeeId,
       date: { $gte: range.start, $lte: range.end },

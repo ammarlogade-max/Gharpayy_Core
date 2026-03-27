@@ -39,12 +39,13 @@ export default function Approvals() {
   const [corrSaving, setCorrSaving] = useState(false);
   const [pwdRequests, setPwdRequests] = useState<any[]>([]);
   const [pwdActing, setPwdActing] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState('');
 
-  const fetchData = (status = tab) => {
+  const fetchData = (status = tab, role = userRole) => {
     setLoading(true);
     const exceptionReq = fetch(`/api/exceptions?status=${status}`, { cache: 'no-store' }).then(r => r.json()).catch(() => ({}));
     const employeeReq =
-      status === 'rejected'
+      role === 'manager' || status === 'rejected'
         ? Promise.resolve({ ok: true, employees: [] as any[] })
         : fetch(`/api/employees/approvals?status=${status}`, { cache: 'no-store' }).then(r => r.json()).catch(() => ({}));
 
@@ -86,7 +87,15 @@ export default function Approvals() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => {
+    fetch('/api/auth/me', { cache: 'no-store' })
+      .then(r => r.json())
+      .then(d => {
+        if (d?.role) setUserRole(d.role);
+        fetchData(tab, d?.role || userRole);
+      })
+      .catch(() => { fetchData(); });
+  }, []);
   useEffect(() => {
     fetch('/api/employees', { cache: 'no-store' }).then(r => r.json()).then(d => { if (d.users) setEmployees(d.users.filter((u: any) => u.role === 'employee')); }).catch(() => {});
   }, []);

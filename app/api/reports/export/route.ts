@@ -22,7 +22,7 @@ function toCSV(headers: string[], rows: any[][]) {
 export async function GET(req: NextRequest) {
   try {
     const user = await getAuthUser();
-    if (!user || (user.role !== 'admin' && user.role !== 'manager')) {
+    if (!user || user.role !== 'admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

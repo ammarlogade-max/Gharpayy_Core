@@ -51,6 +51,7 @@ export default function EmployeeManager() {
   const [showCSV, setShowCSV] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
+  const [userRole, setUserRole] = useState('');
 
   // Manual form
   const [fullName, setFullName] = useState('');
@@ -79,6 +80,9 @@ export default function EmployeeManager() {
   };
 
   useEffect(() => { fetchEmployees(); }, []);
+  useEffect(() => {
+    fetch('/api/auth/me').then(r => r.json()).then(d => { if (d?.role) setUserRole(d.role); }).catch(() => {});
+  }, []);
 
   // ”€”€ Manual create ”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€
   const handleManualCreate = async (e: React.FormEvent) => {
@@ -124,7 +128,7 @@ export default function EmployeeManager() {
           fullName: parts[0] || '',
           email: parts[1] || '',
           password: parts[2] || 'Pass@1234',
-          role: parts[3]?.toLowerCase() || 'employee',
+          role: userRole === 'manager' ? 'employee' : parts[3]?.toLowerCase() || 'employee',
           status: 'pending',
         });
       }
@@ -148,7 +152,7 @@ export default function EmployeeManager() {
             fullName: updated[i].fullName,
             email: updated[i].email.toLowerCase(),
             password: updated[i].password,
-            role: ROLES.includes(updated[i].role) ? updated[i].role : 'employee',
+            role: userRole === 'manager' ? 'employee' : (ROLES.includes(updated[i].role) ? updated[i].role : 'employee'),
           }),
         });
         const d = await r.json();
@@ -210,7 +214,7 @@ export default function EmployeeManager() {
             </div>
             <div>
               <h2 className="text-xl font-bold text-gray-800">Employee Management</h2>
-              <p className="text-xs text-gray-700 mt-0.5">{employees.length} accounts  -  Admin only</p>
+              <p className="text-xs text-gray-700 mt-0.5">{employees.length} accounts  -  Admin/Manager</p>
             </div>
           </div>
           <button onClick={fetchEmployees} className="p-2 rounded-xl hover:bg-gray-100 transition">
@@ -300,13 +304,15 @@ export default function EmployeeManager() {
                       }`}>{emp.role}</span>
                       <p className="text-[10px] text-gray-400 mt-0.5">{timeAgo(emp.createdAt)}</p>
                     </div>
-                    <button
-                      onClick={() => handleDelete(emp._id, emp.fullName)}
-                      disabled={deleting === emp._id}
-                      className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-red-50 text-gray-400 hover:text-red-500 transition disabled:opacity-40"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    {userRole !== 'manager' && (
+                      <button
+                        onClick={() => handleDelete(emp._id, emp.fullName)}
+                        disabled={deleting === emp._id}
+                        className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-red-50 text-gray-400 hover:text-red-500 transition disabled:opacity-40"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 </div>
               );
@@ -322,7 +328,7 @@ export default function EmployeeManager() {
           <div className="bg-white rounded-3xl border border-gray-200 w-full max-w-md shadow-2xl p-6"
             onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-5">
-              <h3 className="text-lg font-bold text-gray-800">Add Employee</h3>
+              <h3 className="text-lg font-bold text-gray-800">{userRole === 'manager' ? 'Add Team Member' : 'Add Employee'}</h3>
               <button onClick={() => setShowManual(false)}
                 className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-gray-100">
                 <X className="w-4 h-4 text-gray-700" />
@@ -355,15 +361,17 @@ export default function EmployeeManager() {
                   </button>
                 </div>
               </div>
-              <div>
-                <label className="text-xs font-medium text-gray-600 mb-1.5 block">Role</label>
-                <select value={role} onChange={e => setRole(e.target.value)}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400">
-                  <option value="employee">Employee</option>
-                  <option value="manager">Manager</option>
-                  <option value="admin">Admin</option>
-                </select>
-              </div>
+              {userRole !== 'manager' && (
+                <div>
+                  <label className="text-xs font-medium text-gray-600 mb-1.5 block">Role</label>
+                  <select value={role} onChange={e => setRole(e.target.value)}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400">
+                    <option value="employee">Employee</option>
+                    <option value="manager">Manager</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </div>
+              )}
               <button type="submit" disabled={submitting}
                 className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold py-3 rounded-2xl transition disabled:opacity-60 mt-2">
                 {submitting ? 'Creating...' : 'Create Account'}

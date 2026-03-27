@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const userId = searchParams.get('userId');
-    const targetId = (auth.role === 'admin' || auth.role === 'manager') && userId ? userId : auth.id;
+    const targetId = auth.role === 'admin' && userId ? userId : auth.id;
 
     if (!mongoose.Types.ObjectId.isValid(targetId)) {
       return NextResponse.json({ error: 'Invalid user ID' }, { status: 400 });
@@ -52,7 +52,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     let targetId = auth.id;
-    const isAdminActor = auth.role === 'admin' || auth.role === 'manager';
+    const isAdminActor = auth.role === 'admin';
     if (isAdminActor && userId) targetId = userId;
 
     if (!mongoose.Types.ObjectId.isValid(targetId)) {
