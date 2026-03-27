@@ -2,7 +2,10 @@ export interface AuthPayload {
   id: string;
   email: string;
   fullName: string;
-  role: 'admin' | 'manager' | 'employee';
+  // sub_admin added to role union — DO NOT remove existing roles
+  role: 'admin' | 'sub_admin' | 'manager' | 'employee';
+  /** Populated only for sub_admin — the OfficeZone ObjectId they manage */
+  assignedTeamId?: string;
 }
 
 export interface AttendanceRecord {
