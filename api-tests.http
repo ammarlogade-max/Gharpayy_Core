@@ -45,3 +45,21 @@ Content-Type: application/json
   "type": "public",
   "description": "Festival of colors"
 }
+
+### Employee Detail (admin/manager)
+GET http://localhost:3005/api/employees/EMPLOYEE_ID
+
+### Attendance History (admin/manager or employee)
+GET http://localhost:3005/api/attendance/history?employeeId=EMPLOYEE_ID&page=1&limit=25
+
+### Attendance History (filtered)
+GET http://localhost:3005/api/attendance/history?employeeId=EMPLOYEE_ID&status=Late&start=2026-03-01&end=2026-03-31&page=1&limit=25
+
+### Bulk Shift Assignment (admin)
+PATCH http://localhost:3005/api/work-schedule
+Content-Type: application/json
+
+{
+  "userIds": ["EMPLOYEE_ID_1", "EMPLOYEE_ID_2"],
+  "shiftType": "FT_MAIN"
+}

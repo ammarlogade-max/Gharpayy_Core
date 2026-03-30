@@ -135,7 +135,7 @@ export async function GET() {
 
     const attendanceRate    = total > 0 ? Math.round((presentCount / total) * 100) : 0;
     const onTimeRate        = presentCount > 0 ? Math.round((onTimeCount / Math.max(presentCount, 1)) * 100) : 0;
-    const taskCompletionRate = taskSummary.total > 0 ? Math.round((taskSummary.completed / taskSummary.total) * 100) : 72;
+    const taskCompletionRate = taskSummary.total > 0 ? Math.round((taskSummary.completed / taskSummary.total) * 100) : 0;
     const breakDiscipline   = Math.max(0, 100 - (breakCount * 5));
     const healthScore       = Math.round((attendanceRate * 0.5) + (onTimeRate * 0.3) + (taskCompletionRate * 0.2));
 

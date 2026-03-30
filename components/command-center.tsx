@@ -214,10 +214,10 @@ export default function CommandCenter() {
           <span className="text-[10px]" style={{ color: '#6b7280' }}>Live</span>
         </div>
         <div className="grid grid-cols-4 gap-2 justify-items-center">
-          <KPIRing value={kpis.attendance}      label="Attendance"       color="#10b981" trend="+1%" />
-          <KPIRing value={kpis.taskCompletion}  label="Task Completion"  color="#6366f1" trend="-2%" />
-          <KPIRing value={kpis.onTimeRate}       label="On Time Rate"    color="#f59e0b" trend="+3%" />
-          <KPIRing value={kpis.breakDiscipline} label="Break Discipline" color="#ef4444" trend="-1%" />
+          <KPIRing value={kpis.attendance}      label="Attendance"       color="#10b981" />
+          <KPIRing value={kpis.taskCompletion}  label="Task Completion"  color="#6366f1" />
+          <KPIRing value={kpis.onTimeRate}       label="On Time Rate"    color="#f59e0b" />
+          <KPIRing value={kpis.breakDiscipline} label="Break Discipline" color="#ef4444" />
         </div>
       </div>
 
