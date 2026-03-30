@@ -46,7 +46,7 @@ export async function PATCH(req: NextRequest) {
     if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const body = await req.json();
-    const { shiftType, startTime, endTime, breaks, weekOffs, userId } = body || {};
+    const { shiftType, startTime, endTime, breaks, weekOffs, userId, userIds } = body || {};
     const type = (shiftType || 'CUSTOM') as ShiftType;
     const isCustom = type === 'CUSTOM';
     const isKnown = type === 'CUSTOM' || type === 'FT_MAIN' || type === 'FT_EARLY' || type === 'INTERN_DAY';
@@ -90,22 +90,21 @@ export async function PATCH(req: NextRequest) {
     const isAdminActor = auth.role === 'admin';
     if (isAdminActor && userId) targetId = userId;
 
-    if (!mongoose.Types.ObjectId.isValid(targetId)) {
+    const hasBulk = Array.isArray(userIds);
+    const bulkIds = hasBulk ? userIds.filter((id: string) => mongoose.Types.ObjectId.isValid(id)) : [];
+    const isBulk = isAdminActor && bulkIds.length > 0;
+    if (hasBulk && bulkIds.length === 0) {
+      return NextResponse.json({ error: 'No valid employee IDs provided' }, { status: 400 });
+    }
+
+    if (!isBulk && !mongoose.Types.ObjectId.isValid(targetId)) {
       return NextResponse.json({ error: 'Invalid user ID' }, { status: 400 });
     }
 
     await connectDB();
-    const user = await User.findById(targetId);
-    if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
-
-    const existing = user.workSchedule || {};
-    if (!isAdminActor && (existing as Record<string, unknown>).isLocked) {
-      return NextResponse.json({ error: 'Work schedule is locked. Contact admin.' }, { status: 403 });
-    }
-
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const breakDuration = finalBreaks.reduce((sum, b) => sum + Number(b.durationMinutes || 0), 0);
-    user.workSchedule = {
+    const payload = {
       shiftType: type,
       startTime: finalStart,
       endTime: finalEnd,
@@ -117,6 +116,20 @@ export async function PATCH(req: NextRequest) {
       setBy: isAdminActor ? 'admin' : 'employee',
     } as any;
 
+    if (isBulk) {
+      const result = await User.updateMany({ _id: { $in: bulkIds } }, { $set: { workSchedule: payload } });
+      return NextResponse.json({ ok: true, updated: result.modifiedCount, workSchedule: payload });
+    }
+
+    const user = await User.findById(targetId);
+    if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
+
+    const existing = user.workSchedule || {};
+    if (!isAdminActor && (existing as Record<string, unknown>).isLocked) {
+      return NextResponse.json({ error: 'Work schedule is locked. Contact admin.' }, { status: 403 });
+    }
+
+    user.workSchedule = payload;
     await user.save();
 
     return NextResponse.json({ ok: true, workSchedule: user.workSchedule });
