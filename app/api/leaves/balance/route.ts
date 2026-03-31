@@ -1,62 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { connectDB } from '@/lib/db';
-import { getAuthUser } from '@/lib/auth';
-import LeaveBalance from '@/models/LeaveBalance';
-import mongoose from 'mongoose';
-import { ensureLeaveBalance } from '@/lib/leave-utils';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { db } from '@/lib/db';
 
+// GET /api/leaves/balance - Get leave balance for current user
 export async function GET(req: NextRequest) {
   try {
-    const auth = await getAuthUser();
-    if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-    const { searchParams } = new URL(req.url);
-    const employeeId = searchParams.get('employeeId') || auth.id;
-
-    if (!mongoose.Types.ObjectId.isValid(employeeId)) {
-      return NextResponse.json({ error: 'Invalid employeeId' }, { status: 400 });
-    }
-    if (auth.role === 'employee' && employeeId !== auth.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    await connectDB();
-    const balance = await ensureLeaveBalance(employeeId);
-    const data = await LeaveBalance.findById(balance._id).lean();
-    return NextResponse.json({ ok: true, balance: data });
-  } catch (e: unknown) {
-    console.error('API error:', e);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-  }
-}
+    const userId = session.user.id;
 
-export async function PATCH(req: NextRequest) {
-  try {
-    const auth = await getAuthUser();
-    if (!auth || auth.role !== 'admin') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Get employee record
+    const employee = await db.employee.findUnique({
+      where: { userId },
+    });
 
-    const { employeeId, paid, sick, casual, compOff, lop, encashable, encashed, ratePerDay } = await req.json();
-    if (!employeeId) return NextResponse.json({ error: 'employeeId required' }, { status: 400 });
-    if (!mongoose.Types.ObjectId.isValid(employeeId)) {
-      return NextResponse.json({ error: 'Invalid employeeId' }, { status: 400 });
+    if (!employee) {
+      return NextResponse.json({ error: 'Employee not found' }, { status: 404 });
     }
 
-    await connectDB();
-    const balance = await ensureLeaveBalance(employeeId);
-    if (paid !== undefined) balance.paid = Number(paid);
-    if (sick !== undefined) balance.sick = Number(sick);
-    if (casual !== undefined) balance.casual = Number(casual);
-    if (compOff !== undefined) balance.compOff = Number(compOff);
-    if (lop !== undefined) balance.lop = Number(lop);
-    if (encashable !== undefined) balance.encashable = Number(encashable);
-    if (encashed !== undefined) balance.encashed = Number(encashed);
-    if (ratePerDay !== undefined) balance.ratePerDay = Number(ratePerDay);
-    await balance.save();
+    // Get leave balance
+    const leaveBalance = await db.leaveBalance.findUnique({
+      where: { employeeId: employee.id },
+    });
 
-    const updated = await LeaveBalance.findById(balance._id).lean();
-    return NextResponse.json({ ok: true, balance: updated });
-  } catch (e: unknown) {
-    console.error('API error:', e);
+    if (!leaveBalance) {
+      // Return default balance if not set
+      return NextResponse.json({
+        casual: 0,
+        sick: 0,
+        earned: 0,
+        total: 0,
+      });
+    }
+
+    return NextResponse.json(leaveBalance);
+  } catch (e) {
+    console.error('[leaves/balance GET]', e);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
