@@ -143,6 +143,7 @@ export async function PATCH(req: NextRequest) {
       { new: true }
     );
     if (!exc) return NextResponse.json({ error: 'Exception not found' }, { status: 404 });
+
     return NextResponse.json({ ok: true, exception: exc });
   } catch (e: unknown) {
     console.error('API error:', e);

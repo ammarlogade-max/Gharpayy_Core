@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
       query.managerId = user.id;
     }
     const [users, total] = await Promise.all([
-      User.find(query, 'fullName email role createdAt').select('-profilePhoto').skip(skip).limit(limit),
+      User.find(query, 'fullName email role createdAt teamName department jobRole').select('-profilePhoto').skip(skip).limit(limit),
       User.countDocuments(query),
     ]);
 

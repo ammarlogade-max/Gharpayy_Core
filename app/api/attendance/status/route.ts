@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { connectDB } from '@/lib/db';
 import Attendance from '@/models/Attendance';
 import User from '@/models/User';
+import Leave from '@/models/Leave';
 import { getAuthUser } from '@/lib/auth';
 import { deriveStatusFromAttendance, getISTDateStr, getShiftRules, recomputeAttendanceTotals } from '@/lib/attendance-utils';
 import { IST_OFFSET_MS } from '@/lib/constants';
@@ -84,6 +85,14 @@ export async function GET() {
     const att = await Attendance.findOne({ employeeId: user.id, date });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const dbUser = await User.findById(user.id).select('workSchedule leaves').lean() as any;
+    const offLeave = await Leave.findOne({
+      employeeId: user.id,
+      startDate: tomorrow,
+      endDate: tomorrow,
+      type: 'Casual',
+      reason: 'Off tomorrow',
+      status: { $in: ['pending', 'approved'] },
+    }).lean() as any;
     const rules = await getShiftRules();
 
     if (!att) {
@@ -109,6 +118,7 @@ export async function GET() {
         isOffToday: Array.isArray(dbUser?.leaves) ? dbUser.leaves.some((l: any) => l.date === date && l.type === 'day_off') : false,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         isOffTomorrow: Array.isArray(dbUser?.leaves) ? dbUser.leaves.some((l: any) => l.date === tomorrow && l.type === 'day_off') : false,
+        offTomorrowStatus: offLeave ? offLeave.status : 'none',
         session: {
           status: 'offline',
           clockInTime: null,
@@ -165,6 +175,7 @@ export async function GET() {
     const isOffToday = Array.isArray(dbUser?.leaves) ? dbUser.leaves.some((l: any) => l.date === date && l.type === 'day_off') : false;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const isOffTomorrow = Array.isArray(dbUser?.leaves) ? dbUser.leaves.some((l: any) => l.date === tomorrow && l.type === 'day_off') : false;
+    const offStatus = offLeave ? offLeave.status : 'none';
 
     return NextResponse.json({
       isCheckedIn: att.isCheckedIn,
@@ -186,6 +197,7 @@ export async function GET() {
       workSchedule: dbUser?.workSchedule || null,
       isOffToday,
       isOffTomorrow,
+      offTomorrowStatus: offStatus,
       session: {
         status: sessionStatus,
         clockInTime: firstWorkSession?.checkIn?.toISOString() || null,

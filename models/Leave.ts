@@ -1,24 +1,23 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
-export type LeaveType = 'Paid' | 'Sick' | 'Casual' | 'Comp Off' | 'LOP';
-export type LeaveStatus = 'pending' | 'approved' | 'rejected';
+export type LeaveType = 'casual' | 'sick' | 'earned' | 'comp_off' | 'lop' | 'other';
+export type LeaveStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
 
 export interface ILeave extends Document {
   employeeId: mongoose.Types.ObjectId;
   employeeName: string;
-  type: LeaveType;
-  startDate: string;
-  endDate: string;
-  days: number;
+  leaveType: LeaveType;
+  startDate: string; // YYYY-MM-DD
+  endDate: string;   // YYYY-MM-DD
+  totalDays: number;
+  reason: string;
   status: LeaveStatus;
-  reason?: string;
-  appliedAt: Date;
-  approvedAt?: Date;
-  approvedBy?: string;
-  approvedByName?: string;
-  rejectedAt?: Date;
-  rejectedBy?: string;
-  rejectedReason?: string;
+  reviewedBy?: string;
+  reviewedByName?: string;
+  reviewNote?: string;
+  reviewedAt?: Date;
+  isHalfDay: boolean;
+  halfDaySession?: 'morning' | 'afternoon';
   createdAt: Date;
   updatedAt: Date;
 }
@@ -26,22 +25,22 @@ export interface ILeave extends Document {
 const LeaveSchema = new Schema<ILeave>({
   employeeId:      { type: Schema.Types.ObjectId, ref: 'GpAttUser', required: true },
   employeeName:    { type: String, required: true },
-  type:            { type: String, enum: ['Paid','Sick','Casual','Comp Off','LOP'], required: true },
+  leaveType:       { type: String, enum: ['casual', 'sick', 'earned', 'comp_off', 'lop', 'other'], required: true },
   startDate:       { type: String, required: true },
   endDate:         { type: String, required: true },
-  days:            { type: Number, required: true },
-  status:          { type: String, enum: ['pending','approved','rejected'], default: 'pending' },
-  reason:          { type: String, default: '' },
-  appliedAt:       { type: Date, default: Date.now },
-  approvedAt:      { type: Date, default: null },
-  approvedBy:      { type: String, default: '' },
-  approvedByName:  { type: String, default: '' },
-  rejectedAt:      { type: Date, default: null },
-  rejectedBy:      { type: String, default: '' },
-  rejectedReason:  { type: String, default: '' },
+  totalDays:       { type: Number, required: true, min: 0.5 },
+  reason:          { type: String, required: true, maxlength: 500 },
+  status:          { type: String, enum: ['pending', 'approved', 'rejected', 'cancelled'], default: 'pending' },
+  reviewedBy:      { type: String, default: null },
+  reviewedByName:  { type: String, default: null },
+  reviewNote:      { type: String, default: '' },
+  reviewedAt:      { type: Date, default: null },
+  isHalfDay:       { type: Boolean, default: false },
+  halfDaySession:  { type: String, enum: ['morning', 'afternoon', null], default: null },
 }, { timestamps: true });
 
-LeaveSchema.index({ employeeId: 1, startDate: 1 });
-LeaveSchema.index({ status: 1, startDate: 1 });
+LeaveSchema.index({ employeeId: 1, status: 1 });
+LeaveSchema.index({ startDate: 1, endDate: 1 });
 
-export default mongoose.models.GpLeave || mongoose.model<ILeave>('GpLeave', LeaveSchema);
+export default mongoose.models.GpLeave ||
+  mongoose.model<ILeave>('GpLeave', LeaveSchema);

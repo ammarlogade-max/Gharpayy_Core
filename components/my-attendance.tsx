@@ -106,10 +106,28 @@ export default function MyAttendance() {
       const r = await fetch('/api/leaves/off-tomorrow', { method: 'POST' });
       const d = await r.json();
       if (d.ok) {
-        flash('Off tomorrow marked successfully', true);
+        flash('Off tomorrow request sent for approval', true);
         fetchStatus();
       } else {
         flash(d.error || 'Unable to mark off tomorrow', false);
+      }
+    } catch {
+      flash('Network error', false);
+    } finally {
+      setLeaveSaving(false);
+    }
+  };
+
+  const resetOffTomorrow = async () => {
+    setLeaveSaving(true);
+    try {
+      const r = await fetch('/api/leaves/off-tomorrow', { method: 'DELETE' });
+      const d = await r.json();
+      if (d.ok) {
+        flash('Off tomorrow reset successfully', true);
+        fetchStatus();
+      } else {
+        flash(d.error || 'Unable to reset off tomorrow', false);
       }
     } catch {
       flash('Network error', false);
@@ -217,18 +235,31 @@ export default function MyAttendance() {
               </div>
             ) : (
               <div className="space-y-3">
-                {!att?.isOffTomorrow && (
+                {att?.offTomorrowStatus === 'none' && (
                   <button onClick={markOffTomorrow} disabled={leaveSaving}
                     className="w-full py-2.5 rounded-2xl font-semibold text-xs disabled:opacity-50"
                     style={{ background: 'rgba(37,99,235,0.1)', border: '1px solid rgba(37,99,235,0.2)', color: '#2563eb' }}>
-                    {leaveSaving ? 'Saving...' : 'Mark Off Tomorrow'}
+                    {leaveSaving ? 'Saving...' : 'Mark Off Tomorrow (Approval Required)'}
                   </button>
                 )}
-                {att?.isOffTomorrow && (
+                {att?.offTomorrowStatus === 'pending' && (
+                  <div className="w-full py-2.5 rounded-2xl text-xs font-semibold text-center"
+                    style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', color: '#f59e0b' }}>
+                    Off Tomorrow Request Pending
+                  </div>
+                )}
+                {att?.offTomorrowStatus === 'approved' && (
                   <div className="w-full py-2.5 rounded-2xl text-xs font-semibold text-center"
                     style={{ background: 'rgba(37,99,235,0.08)', border: '1px solid rgba(37,99,235,0.2)', color: '#2563eb' }}>
                     Off Tomorrow Confirmed
                   </div>
+                )}
+                {(att?.offTomorrowStatus === 'pending' || att?.offTomorrowStatus === 'approved') && (
+                  <button onClick={resetOffTomorrow} disabled={leaveSaving}
+                    className="w-full py-2.5 rounded-2xl font-semibold text-xs disabled:opacity-50"
+                    style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#ef4444' }}>
+                    {leaveSaving ? 'Resetting...' : 'Reset Off Tomorrow'}
+                  </button>
                 )}
                 {/* Not clocked in */}
                 {!att?.isCheckedIn && !att?.isOnBreak && !att?.isInField && !att?.isOffToday && (

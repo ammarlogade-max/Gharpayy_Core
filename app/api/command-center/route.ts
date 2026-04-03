@@ -4,6 +4,7 @@ import Attendance from '@/models/Attendance';
 import User from '@/models/User';
 import Task from '@/models/Task';
 import ExceptionRequest from '@/models/ExceptionRequest';
+import Tracker from '@/models/Tracker';
 import '@/models/OfficeZone';
 import { getAuthUser } from '@/lib/auth';
 import { getISTDateStr } from '@/lib/attendance-utils';
@@ -13,6 +14,12 @@ function fmtTime(d: Date) {
   return new Date(d).toLocaleTimeString('en-IN', {
     hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata',
   });
+}
+
+function getISTDateDaysAgo(days: number) {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return getISTDateStr(d);
 }
 
 export async function GET() {
@@ -137,7 +144,6 @@ export async function GET() {
     const onTimeRate        = presentCount > 0 ? Math.round((onTimeCount / Math.max(presentCount, 1)) * 100) : 0;
     const taskCompletionRate = taskSummary.total > 0 ? Math.round((taskSummary.completed / taskSummary.total) * 100) : 0;
     const breakDiscipline   = Math.max(0, 100 - (breakCount * 5));
-    const healthScore       = Math.round((attendanceRate * 0.5) + (onTimeRate * 0.3) + (taskCompletionRate * 0.2));
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const needAction: any[] = [];
@@ -148,12 +154,43 @@ export async function GET() {
       needAction.push({ type: 'attendance_drop', count: yesterdayPresent - presentCount, label: `Attendance drop vs yesterday: -${yesterdayPresent - presentCount}` });
     }
 
+    // Tracker compliance (all roles)
+    const trackerUsers = await User.find({ role: { $in: ['admin', 'sub_admin', 'manager', 'employee'] }, isApproved: { $ne: false } })
+      .select('_id')
+      .lean();
+    const trackerIds = trackerUsers.map(u => u._id);
+    const trackerTotal = trackerIds.length;
+    const trackerSubmittedToday = await Tracker.countDocuments({ date: today, employeeId: { $in: trackerIds }, isSubmitted: true });
+    const trackerEditedToday = await Tracker.countDocuments({ date: today, employeeId: { $in: trackerIds }, isEdited: true });
+    const weekStart = getISTDateDaysAgo(6);
+    const monthStart = `${today.slice(0, 7)}-01`;
+    const trackerSubmittedWeek = await Tracker.countDocuments({ date: { $gte: weekStart, $lte: today }, employeeId: { $in: trackerIds }, isSubmitted: true });
+    const trackerSubmittedMonth = await Tracker.countDocuments({ date: { $gte: monthStart, $lte: today }, employeeId: { $in: trackerIds }, isSubmitted: true });
+    const trackerExpectedWeek = trackerTotal * 7;
+    const trackerExpectedMonth = trackerTotal * (new Date(today).getDate());
+    const trackerCompliance = {
+      daily: trackerTotal > 0 ? Math.round((trackerSubmittedToday / trackerTotal) * 100) : 0,
+      weekly: trackerExpectedWeek > 0 ? Math.round((trackerSubmittedWeek / trackerExpectedWeek) * 100) : 0,
+      monthly: trackerExpectedMonth > 0 ? Math.round((trackerSubmittedMonth / trackerExpectedMonth) * 100) : 0,
+      submittedToday: trackerSubmittedToday,
+      missingToday: Math.max(0, trackerTotal - trackerSubmittedToday),
+      editedToday: trackerEditedToday,
+    };
+
+    const healthScore = Math.round(
+      (attendanceRate * 0.45) +
+      (onTimeRate * 0.25) +
+      (taskCompletionRate * 0.2) +
+      (trackerCompliance.daily * 0.1)
+    );
+
     return NextResponse.json({
       ok: true, date: today,
       summary: { total, present: presentCount, absent: absentCount, late: lateCount, early: earlyCount, onTime: onTimeCount, onBreak: breakCount, inField: fieldCount, activeNow: presentCount },
       compare: { yesterdayPresent, presentDelta: presentCount - yesterdayPresent },
       healthScore,
       kpis: { attendance: attendanceRate, onTimeRate, taskCompletion: taskCompletionRate, breakDiscipline },
+      trackerCompliance,
       teamPulse, taskSummary, pendingApprovals, needAction,
     });
   } catch (e: unknown) {

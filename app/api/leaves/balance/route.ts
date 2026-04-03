@@ -1,62 +1,74 @@
 import { NextRequest, NextResponse } from 'next/server';
+import mongoose from 'mongoose';
 import { connectDB } from '@/lib/db';
 import { getAuthUser } from '@/lib/auth';
 import LeaveBalance from '@/models/LeaveBalance';
-import mongoose from 'mongoose';
-import { ensureLeaveBalance } from '@/lib/leave-utils';
 
+// GET /api/leaves/balance?year=2026&employeeId=xxx
 export async function GET(req: NextRequest) {
   try {
     const auth = await getAuthUser();
     if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { searchParams } = new URL(req.url);
-    const employeeId = searchParams.get('employeeId') || auth.id;
+    const year = searchParams.get('year') ? parseInt(searchParams.get('year')!) : new Date().getFullYear();
+    const employeeIdParam = searchParams.get('employeeId');
 
-    if (!mongoose.Types.ObjectId.isValid(employeeId)) {
+    const targetId = (auth.role === 'admin' || auth.role === 'sub_admin' || auth.role === 'manager') && employeeIdParam && mongoose.Types.ObjectId.isValid(employeeIdParam)
+      ? employeeIdParam
+      : auth.id;
+
+    if (!mongoose.Types.ObjectId.isValid(targetId)) {
       return NextResponse.json({ error: 'Invalid employeeId' }, { status: 400 });
-    }
-    if (auth.role === 'employee' && employeeId !== auth.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
     await connectDB();
-    const balance = await ensureLeaveBalance(employeeId);
-    const data = await LeaveBalance.findById(balance._id).lean();
-    return NextResponse.json({ ok: true, balance: data });
-  } catch (e: unknown) {
-    console.error('API error:', e);
+    const balance = await LeaveBalance.findOneAndUpdate(
+      { employeeId: new mongoose.Types.ObjectId(targetId), year },
+      {},
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    ).lean();
+
+    return NextResponse.json({ ok: true, balance });
+  } catch (e) {
+    console.error('[leaves/balance GET]', e);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
+// PATCH /api/leaves/balance - admin update
 export async function PATCH(req: NextRequest) {
   try {
     const auth = await getAuthUser();
-    if (!auth || auth.role !== 'admin') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-    const { employeeId, paid, sick, casual, compOff, lop, encashable, encashed, ratePerDay } = await req.json();
-    if (!employeeId) return NextResponse.json({ error: 'employeeId required' }, { status: 400 });
-    if (!mongoose.Types.ObjectId.isValid(employeeId)) {
-      return NextResponse.json({ error: 'Invalid employeeId' }, { status: 400 });
+    if (!auth || (auth.role !== 'admin' && auth.role !== 'sub_admin')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    await connectDB();
-    const balance = await ensureLeaveBalance(employeeId);
-    if (paid !== undefined) balance.paid = Number(paid);
-    if (sick !== undefined) balance.sick = Number(sick);
-    if (casual !== undefined) balance.casual = Number(casual);
-    if (compOff !== undefined) balance.compOff = Number(compOff);
-    if (lop !== undefined) balance.lop = Number(lop);
-    if (encashable !== undefined) balance.encashable = Number(encashable);
-    if (encashed !== undefined) balance.encashed = Number(encashed);
-    if (ratePerDay !== undefined) balance.ratePerDay = Number(ratePerDay);
-    await balance.save();
+    const body = await req.json().catch(() => ({}));
+    const { employeeId, year, casual, sick, earned, comp_off } = body || {};
 
-    const updated = await LeaveBalance.findById(balance._id).lean();
-    return NextResponse.json({ ok: true, balance: updated });
-  } catch (e: unknown) {
-    console.error('API error:', e);
+    if (!employeeId || !mongoose.Types.ObjectId.isValid(employeeId)) {
+      return NextResponse.json({ error: 'employeeId is required' }, { status: 400 });
+    }
+
+    const safeYear = Number.isFinite(Number(year)) ? Number(year) : new Date().getFullYear();
+
+    await connectDB();
+    const update: Record<string, unknown> = {};
+    if (casual) update.casual = casual;
+    if (sick) update.sick = sick;
+    if (earned) update.earned = earned;
+    if (comp_off) update.comp_off = comp_off;
+
+    const balance = await LeaveBalance.findOneAndUpdate(
+      { employeeId: new mongoose.Types.ObjectId(employeeId), year: safeYear },
+      { $set: update },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    ).lean();
+
+    return NextResponse.json({ ok: true, balance });
+  } catch (e) {
+    console.error('[leaves/balance PATCH]', e);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

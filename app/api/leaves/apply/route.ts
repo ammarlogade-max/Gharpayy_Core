@@ -32,15 +32,15 @@ export async function POST(req: NextRequest) {
     const holidayDates = holidays.map(h => h.date);
     const weekOffs = Array.isArray(user?.workSchedule?.weekOffs) && user.workSchedule.weekOffs.length > 0
       ? user.workSchedule.weekOffs
-      : Array.isArray(policy?.weekOffs) ? policy.weekOffs : [];
+      : Array.isArray(policy?.weeklyOffDays) ? policy.weeklyOffDays : [];
 
     const days = calculateLeaveDays({
       startDate,
       endDate,
       weekOffs,
       holidays: holidayDates,
-      holidayExclusionEnabled: policy?.holidayExclusionEnabled !== false,
-      weeklyOffExclusionEnabled: policy?.weeklyOffExclusionEnabled !== false,
+      holidayExclusionEnabled: (policy as any)?.holidayExclusionEnabled !== false,
+      weeklyOffExclusionEnabled: (policy as any)?.weeklyOffExclusionEnabled !== false,
     });
 
     if (days <= 0) return NextResponse.json({ error: 'No payable leave days in selected range' }, { status: 400 });

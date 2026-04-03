@@ -1,32 +1,90 @@
 import { NextRequest, NextResponse } from 'next/server';
+import mongoose from 'mongoose';
 import { connectDB } from '@/lib/db';
 import { getAuthUser } from '@/lib/auth';
 import Holiday from '@/models/Holiday';
 
-export async function GET() {
+// GET /api/holidays?year=2026&orgId=xxx
+export async function GET(req: NextRequest) {
   try {
-    const user = await getAuthUser();
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     await connectDB();
-    const holidays = await Holiday.find({}).sort({ date: 1 }).lean();
+    const { searchParams } = new URL(req.url);
+    const year = searchParams.get('year') ? parseInt(searchParams.get('year')!) : new Date().getFullYear();
+    const orgId = searchParams.get('orgId');
+    const type = searchParams.get('type');
+
+    const filter: Record<string, unknown> = { year, isActive: true };
+    if (orgId && mongoose.Types.ObjectId.isValid(orgId)) {
+      filter.orgId = new mongoose.Types.ObjectId(orgId);
+    }
+    if (type) filter.type = type;
+
+    const holidays = await Holiday.find(filter).sort({ date: 1 }).lean();
     return NextResponse.json({ ok: true, holidays });
-  } catch {
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  } catch (err) {
+    return NextResponse.json({ error: 'Failed to fetch holidays' }, { status: 500 });
   }
 }
 
+// POST /api/holidays — admin only
 export async function POST(req: NextRequest) {
   try {
-    const user = await getAuthUser();
-    if (!user || user.role !== 'admin') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    const { name, date, type, description } = await req.json();
-    if (!name || !date) return NextResponse.json({ error: 'name and date required' }, { status: 400 });
+    const auth = await getAuthUser();
+    if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (auth.role !== 'admin' && auth.role !== 'sub_admin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     await connectDB();
-    const exists = await Holiday.findOne({ date });
-    if (exists) return NextResponse.json({ error: 'Holiday already exists for this date' }, { status: 409 });
-    const holiday = await Holiday.create({ name, date, type: type || 'public', description: description || '' });
-    return NextResponse.json({ ok: true, holiday });
+    const body = await req.json();
+    const { name, date, year, type, description, orgId } = body;
+
+    if (!name || !date || !year) {
+      return NextResponse.json({ error: 'name, date, year are required' }, { status: 400 });
+    }
+
+    const orgObjectId = orgId && mongoose.Types.ObjectId.isValid(orgId)
+      ? new mongoose.Types.ObjectId(orgId)
+      : (mongoose.Types.ObjectId.isValid(auth.id) ? new mongoose.Types.ObjectId(auth.id) : null);
+
+    if (!orgObjectId) {
+      return NextResponse.json({ error: 'Invalid orgId' }, { status: 400 });
+    }
+
+    const holiday = await Holiday.create({
+      orgId: orgObjectId,
+      name,
+      date,
+      year,
+      type: type || 'national',
+      description,
+      createdBy: mongoose.Types.ObjectId.isValid(auth.id) ? new mongoose.Types.ObjectId(auth.id) : undefined,
+      isActive: true,
+    });
+
+    return NextResponse.json({ ok: true, holiday }, { status: 201 });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Failed to create holiday';
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}
+
+// DELETE /api/holidays?id=xxx — admin only (soft delete)
+export async function DELETE(req: NextRequest) {
+  try {
+    const auth = await getAuthUser();
+    if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (auth.role !== 'admin' && auth.role !== 'sub_admin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    await connectDB();
+    const id = new URL(req.url).searchParams.get('id');
+    if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 });
+
+    await Holiday.findByIdAndUpdate(id, { isActive: false });
+    return NextResponse.json({ ok: true, message: 'Holiday removed' });
   } catch {
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to delete holiday' }, { status: 500 });
   }
 }

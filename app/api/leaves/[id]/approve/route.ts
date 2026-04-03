@@ -27,7 +27,7 @@ export async function POST(_: NextRequest, ctx: { params: Promise<{ id: string }
       }
     }
 
-    const balance = await ensureLeaveBalance(String(leave.employeeId));
+    const balance = await ensureLeaveBalance(String(leave.employeeId)) as any;
     const days = Number(leave.days || 0);
 
     if (leave.type === 'Paid' && Number(balance.paid || 0) < days) {
@@ -55,6 +55,20 @@ export async function POST(_: NextRequest, ctx: { params: Promise<{ id: string }
     leave.approvedBy = auth.id;
     leave.approvedByName = auth.fullName || auth.email;
     await leave.save();
+
+    if (leave.reason === 'Off tomorrow') {
+      const emp = await User.findById(leave.employeeId).select('leaves');
+      if (emp) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const leaves = Array.isArray((emp as any).leaves) ? (emp as any).leaves : [];
+        const exists = leaves.some((l: any) => l.date === leave.startDate && l.type === 'day_off');
+        if (!exists) {
+          leaves.push({ date: leave.startDate, type: 'day_off', status: 'approved' });
+          (emp as any).leaves = leaves;
+          await emp.save();
+        }
+      }
+    }
 
     const updated = await LeaveBalance.findById(balance._id).lean();
     return NextResponse.json({ ok: true, leave, balance: updated });

@@ -11,6 +11,7 @@ interface CCData {
   };
   healthScore: number;
   kpis: { attendance: number; onTimeRate: number; taskCompletion: number; breakDiscipline: number; };
+  trackerCompliance?: { daily: number; weekly: number; monthly: number; submittedToday: number; missingToday: number; editedToday: number; };
   teamPulse: { employeeId: string; employeeName: string; team: string; workMode: string; dayStatus: string; checkInTime: string | null; }[];
   taskSummary: { blocked: number; overdue: number; total: number; completed: number; };
   pendingApprovals: number;
@@ -220,6 +221,33 @@ export default function CommandCenter() {
           <KPIRing value={kpis.breakDiscipline} label="Break Discipline" color="#ef4444" />
         </div>
       </div>
+
+      {/* Tracker Compliance */}
+      {data.trackerCompliance && (
+        <div style={card} className="p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-bold text-gray-900">Daily Updates Compliance</h2>
+            <span className="text-[10px]" style={{ color: '#6b7280' }}>Live</span>
+          </div>
+          <div className="grid grid-cols-3 gap-3 text-center">
+            <div className="p-3 rounded-xl" style={{ background: '#f9fafb', border: '1px solid #f3f4f6' }}>
+              <div className="text-2xl font-bold text-emerald-600">{data.trackerCompliance.daily}%</div>
+              <div className="text-[10px]" style={{ color: '#6b7280' }}>Daily</div>
+            </div>
+            <div className="p-3 rounded-xl" style={{ background: '#f9fafb', border: '1px solid #f3f4f6' }}>
+              <div className="text-2xl font-bold text-indigo-600">{data.trackerCompliance.weekly}%</div>
+              <div className="text-[10px]" style={{ color: '#6b7280' }}>Weekly</div>
+            </div>
+            <div className="p-3 rounded-xl" style={{ background: '#f9fafb', border: '1px solid #f3f4f6' }}>
+              <div className="text-2xl font-bold text-orange-500">{data.trackerCompliance.monthly}%</div>
+              <div className="text-[10px]" style={{ color: '#6b7280' }}>Monthly</div>
+            </div>
+          </div>
+          <div className="mt-3 text-[10px]" style={{ color: '#6b7280' }}>
+            {data.trackerCompliance.submittedToday} submitted, {data.trackerCompliance.missingToday} missing, {data.trackerCompliance.editedToday} edited
+          </div>
+        </div>
+      )}
 
       {/* Live Team Pulse */}
       <div style={card} className="p-5">

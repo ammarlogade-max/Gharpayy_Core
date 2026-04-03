@@ -4,6 +4,7 @@ import { getAuthUser } from '@/lib/auth';
 import Attendance from '@/models/Attendance';
 import Task from '@/models/Task';
 import Notice from '@/models/Notice';
+import User from '@/models/User';
 import { getISTDateStr } from '@/lib/attendance-utils';
 import { BREAK_LIMIT_MINS } from '@/lib/constants';
 
@@ -31,6 +32,7 @@ export async function GET(req: NextRequest) {
     const type = url.searchParams.get('type') || 'daily_attendance';
     const format = url.searchParams.get('format') || 'csv';
     const month = url.searchParams.get('month'); // YYYY-MM
+    const dateParam = url.searchParams.get('date');
     const today = getISTDateStr();
 
     const filename = `${type}_${today}.${format === 'excel' ? 'xls' : 'csv'}`;
@@ -42,6 +44,72 @@ export async function GET(req: NextRequest) {
       content = toCSV(
         ['employeeId', 'date', 'dayStatus', 'workMode', 'isCheckedIn', 'totalWorkMins', 'totalBreakMins', 'lateByMins', 'earlyByMins'],
         rows.map(r => [r.employeeId, r.date, r.dayStatus, r.workMode || '', !!r.isCheckedIn, r.totalWorkMins || 0, r.totalBreakMins || 0, r.lateByMins || 0, r.earlyByMins || 0]),
+      );
+    } else if (type === 'daily_breaks') {
+      const reportDate = dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) ? dateParam : today;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rows = await Attendance.find({ date: reportDate }).lean() as any[];
+      const ids = rows.map(r => r.employeeId);
+      const users = await User.find({ _id: { $in: ids } })
+        .select('fullName role officeZoneId')
+        .populate('officeZoneId', 'name')
+        .lean() as any[];
+      const userMap = new Map(users.map(u => [String(u._id), u]));
+      content = toCSV(
+        ['employeeId', 'employeeName', 'role', 'team', 'date', 'totalBreakMins', 'totalWorkMins', 'dayStatus', 'workMode'],
+        rows.map(r => {
+          const u = userMap.get(String(r.employeeId));
+          return [
+            r.employeeId,
+            u?.fullName || '',
+            u?.role || '',
+            (u?.officeZoneId as any)?.name || '',
+            r.date,
+            r.totalBreakMins || 0,
+            r.totalWorkMins || 0,
+            r.dayStatus || '',
+            r.workMode || '',
+          ];
+        }),
+      );
+    } else if (type === 'weekly_breaks') {
+      const reportDate = dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) ? dateParam : today;
+      const end = new Date(`${reportDate}T00:00:00.000Z`);
+      const start = new Date(end.getTime() - 6 * 86400000);
+      const startStr = start.toISOString().split('T')[0];
+      const endStr = reportDate;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rows = await Attendance.find({ date: { $gte: startStr, $lte: endStr } }).lean() as any[];
+      const ids = Array.from(new Set(rows.map(r => String(r.employeeId))));
+      const users = await User.find({ _id: { $in: ids } })
+        .select('fullName role officeZoneId')
+        .populate('officeZoneId', 'name')
+        .lean() as any[];
+      const userMap = new Map(users.map(u => [String(u._id), u]));
+      const sums = new Map<string, { breakMins: number; workMins: number }>();
+      rows.forEach(r => {
+        const id = String(r.employeeId);
+        const cur = sums.get(id) || { breakMins: 0, workMins: 0 };
+        cur.breakMins += Number(r.totalBreakMins || 0);
+        cur.workMins += Number(r.totalWorkMins || 0);
+        sums.set(id, cur);
+      });
+      content = toCSV(
+        ['employeeId', 'employeeName', 'role', 'team', 'weekStart', 'weekEnd', 'totalBreakMins', 'totalWorkMins'],
+        ids.map(id => {
+          const u = userMap.get(id);
+          const sum = sums.get(id) || { breakMins: 0, workMins: 0 };
+          return [
+            id,
+            u?.fullName || '',
+            u?.role || '',
+            (u?.officeZoneId as any)?.name || '',
+            startStr,
+            endStr,
+            sum.breakMins,
+            sum.workMins,
+          ];
+        }),
       );
     } else if (type === 'weekly_summary') {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -168,6 +168,7 @@ export async function GET(req: NextRequest) {
             workMode:      att?.workMode || (att?.isOnBreak ? 'Break' : att?.isInField ? 'Field' : att?.isCheckedIn ? 'Present' : 'Absent'),
             dayStatus:     derived.dayStatus || 'Absent',
             totalWorkMins: att?.totalWorkMins || 0,
+            totalBreakMins: att?.totalBreakMins || 0,
             lateByMins:    derived.lateByMins || 0,
             earlyByMins:   derived.earlyByMins || 0,
           };
