@@ -89,7 +89,7 @@ export async function GET() {
       employeeId: user.id,
       startDate: tomorrow,
       endDate: tomorrow,
-      type: 'Casual',
+      leaveType: 'casual',
       reason: 'Off tomorrow',
       status: { $in: ['pending', 'approved'] },
     }).lean() as any;

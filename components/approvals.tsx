@@ -519,7 +519,9 @@ export default function Approvals() {
               <div key={r._id} className="flex items-center justify-between p-3 rounded-xl" style={{ background: '#f9fafb', border: '1px solid #e5e7eb' }}>
                 <div>
                   <div className="text-sm font-semibold text-gray-900">{r.employeeName}</div>
-                  <div className="text-[11px]" style={{ color: '#6b7280' }}>{r.type} • {r.startDate} - {r.endDate} • {r.days} day(s)</div>
+                  <div className="text-[11px]" style={{ color: '#6b7280' }}>
+                    {(r.leaveType || r.type)} • {r.startDate} - {r.endDate} • {(r.totalDays ?? r.days) || 0} day(s)
+                  </div>
                   {r.reason && <div className="text-[10px]" style={{ color: '#9ca3af' }}>{r.reason}</div>}
                 </div>
                 <div className="flex items-center gap-2">

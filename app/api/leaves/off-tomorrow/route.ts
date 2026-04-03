@@ -34,7 +34,7 @@ export async function POST() {
       employeeId: auth.id,
       startDate: tomorrow,
       endDate: tomorrow,
-      type: 'Casual',
+      leaveType: 'casual',
       reason: 'Off tomorrow',
       status: { $in: ['pending', 'approved'] },
     }).lean() as any;
@@ -66,13 +66,22 @@ export async function POST() {
     const leave = await Leave.create({
       employeeId: auth.id,
       employeeName: user.fullName || auth.fullName || auth.email,
-      type: 'Casual',
+      leaveType: 'casual',
       startDate: tomorrow,
       endDate: tomorrow,
-      days: days || 1,
+      totalDays: days || 1,
       status: 'pending',
       reason: 'Off tomorrow',
     });
+
+    try {
+      const balance = await ensureLeaveBalance(auth.id) as any;
+      const entry = balance.casual || { total: 12, used: 0, pending: 0 };
+      const inc = Number(days || 1);
+      entry.pending = Number(entry.pending || 0) + inc;
+      balance.casual = entry;
+      await balance.save();
+    } catch {}
 
     return NextResponse.json({
       ok: true,
@@ -104,7 +113,7 @@ export async function DELETE() {
       employeeId: auth.id,
       startDate: tomorrow,
       endDate: tomorrow,
-      type: 'Casual',
+      leaveType: 'casual',
       reason: 'Off tomorrow',
       status: { $in: ['pending', 'approved'] },
     });
@@ -113,10 +122,17 @@ export async function DELETE() {
       return NextResponse.json({ ok: true, status: 'none', message: 'No off tomorrow request found' });
     }
 
-    if (offLeave.status === 'approved') {
+    {
       const balance = await ensureLeaveBalance(auth.id) as any;
-      const days = Number((offLeave as any).days || 1);
-      balance.casual = Number(balance.casual || 0) + days;
+      const days = Number((offLeave as any).totalDays || 1);
+      const entry = balance.casual || { total: 12, used: 0, pending: 0 };
+      if (offLeave.status === 'pending') {
+        entry.pending = Math.max(0, Number(entry.pending || 0) - days);
+      }
+      if (offLeave.status === 'approved') {
+        entry.used = Math.max(0, Number(entry.used || 0) - days);
+      }
+      balance.casual = entry;
       await balance.save();
     }
 
