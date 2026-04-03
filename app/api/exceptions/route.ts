@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/db';
 import ExceptionRequest from '@/models/ExceptionRequest';
+import Leave from '@/models/Leave';
+import LeaveBalance from '@/models/LeaveBalance';
 import User from '@/models/User';
 import { getAuthUser } from '@/lib/auth';
 import mongoose from 'mongoose';
@@ -143,6 +145,31 @@ export async function PATCH(req: NextRequest) {
       { new: true }
     );
     if (!exc) return NextResponse.json({ error: 'Exception not found' }, { status: 404 });
+
+    if (status === 'approved' && exc.type === 'off_tomorrow_reset') {
+      const tomorrow = (exc as any).date;
+      const offLeave = await Leave.findOne({
+        employeeId: (exc as any).employeeId,
+        startDate: tomorrow,
+        endDate: tomorrow,
+        type: 'Casual',
+        reason: 'Off tomorrow',
+        status: { $in: ['pending', 'approved'] },
+      });
+      if (offLeave) {
+        if (offLeave.status === 'approved') {
+          const balance = await LeaveBalance.findOne({ employeeId: (exc as any).employeeId }).lean() as any;
+          if (balance) {
+            const days = Number((offLeave as any).days || 1);
+            balance.casual = Number(balance.casual || 0) + days;
+            await LeaveBalance.findByIdAndUpdate(balance._id, { casual: balance.casual });
+          }
+        }
+        offLeave.status = 'cancelled';
+        await offLeave.save();
+      }
+    }
+
     return NextResponse.json({ ok: true, exception: exc });
   } catch (e: unknown) {
     console.error('API error:', e);

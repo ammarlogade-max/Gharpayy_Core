@@ -1,99 +1,87 @@
-import mongoose, { Schema, Document } from 'mongoose';
+import mongoose, { Schema, Document, Model } from 'mongoose';
 
-// Goal entry — target vs actual
-export interface IGoalEntry {
-  target: number;  // what was planned
-  actual: number;  // what was achieved
-  notes: string;
-}
+export type WeeklyTrackerStatus = 'draft' | 'submitted' | 'reviewed';
 
 export interface IWeeklyTracker extends Document {
   employeeId: mongoose.Types.ObjectId;
   orgId: mongoose.Types.ObjectId;
-  year: number;         // e.g. 2026
-  weekNumber: number;   // 1–44
-  weekStartDate: string; // YYYY-MM-DD
-  weekEndDate: string;   // YYYY-MM-DD
-
-  // 4 configurable goals per week
-  g1: IGoalEntry; // e.g. Calls Made
-  g2: IGoalEntry; // e.g. Leads Added
-  g3: IGoalEntry; // e.g. Follow-ups Done
-  g4: IGoalEntry; // e.g. Closures / Conversions
-
-  // GL Tours = Ground Level Site Visits
-  glTours: {
-    target: number;
-    actual: number;
-    locations: string; // optional comma-separated locations
-  };
-
-  // Admin evaluation
-  isGoodWeek: boolean;       // admin marks: was this a good week?
-  adminNotes: string;        // admin remarks
-  impact: string;            // impact notes
-  issues: string;            // any issues noted
-
-  // Employee self-assessment
-  selfRating: number;        // 1–5
-  selfNotes: string;
-
-  status: 'draft' | 'submitted' | 'reviewed';
+  employeeName?: string;
+  role?: string;
+  teamName?: string;
+  department?: string;
+  year: number;
+  weekNumber: number;
+  weekStartDate: string;
+  weekEndDate: string;
+  g1: { target: number; actual: number; notes: string };
+  g2: { target: number; actual: number; notes: string };
+  g3: { target: number; actual: number; notes: string };
+  g4: { target: number; actual: number; notes: string };
+  glTours: { target: number; actual: number; locations: string };
+  initial: string;
+  onIt: string;
+  impact: string;
+  notes: string;
+  issues: string;
+  status: WeeklyTrackerStatus;
   submittedAt?: Date;
+  isGoodWeek: boolean;
+  adminNotes?: string;
+  adminImpact?: string;
+  adminIssues?: string;
   reviewedAt?: Date;
   reviewedBy?: mongoose.Types.ObjectId;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-const GoalEntrySchema = new Schema({
-  target: { type: Number, default: 0 },
-  actual: { type: Number, default: 0 },
-  notes: { type: String, default: '' },
+const GoalSchema = new Schema({
+  target: { type: Number, default: 0, min: 0 },
+  actual: { type: Number, default: 0, min: 0 },
+  notes: { type: String, default: '', maxlength: 500 },
 }, { _id: false });
 
 const WeeklyTrackerSchema = new Schema<IWeeklyTracker>({
   employeeId: { type: Schema.Types.ObjectId, ref: 'GpAttUser', required: true },
-  orgId:      { type: Schema.Types.ObjectId, ref: 'Org', required: true },
-  year:       { type: Number, required: true },
+  orgId: { type: Schema.Types.ObjectId, ref: 'GpAttUser', required: true },
+  employeeName: { type: String, default: '' },
+  role: { type: String, default: '' },
+  teamName: { type: String, default: '' },
+  department: { type: String, default: '' },
+  year: { type: Number, required: true },
   weekNumber: { type: Number, required: true, min: 1, max: 44 },
   weekStartDate: { type: String, required: true },
-  weekEndDate:   { type: String, required: true },
-
-  g1: { type: GoalEntrySchema, default: () => ({ target: 0, actual: 0, notes: '' }) },
-  g2: { type: GoalEntrySchema, default: () => ({ target: 0, actual: 0, notes: '' }) },
-  g3: { type: GoalEntrySchema, default: () => ({ target: 0, actual: 0, notes: '' }) },
-  g4: { type: GoalEntrySchema, default: () => ({ target: 0, actual: 0, notes: '' }) },
-
+  weekEndDate: { type: String, required: true },
+  g1: { type: GoalSchema, default: () => ({}) },
+  g2: { type: GoalSchema, default: () => ({}) },
+  g3: { type: GoalSchema, default: () => ({}) },
+  g4: { type: GoalSchema, default: () => ({}) },
   glTours: {
-    target:    { type: Number, default: 0 },
-    actual:    { type: Number, default: 0 },
-    locations: { type: String, default: '' },
+    target: { type: Number, default: 0, min: 0 },
+    actual: { type: Number, default: 0, min: 0 },
+    locations: { type: String, default: '', maxlength: 500 },
   },
-
-  isGoodWeek:  { type: Boolean, default: false },
-  adminNotes:  { type: String, default: '' },
-  impact:      { type: String, default: '' },
-  issues:      { type: String, default: '' },
-
-  selfRating:  { type: Number, default: 0, min: 0, max: 5 },
-  selfNotes:   { type: String, default: '' },
-
-  status: {
-    type: String,
-    enum: ['draft', 'submitted', 'reviewed'],
-    default: 'draft',
-  },
-  submittedAt: { type: Date },
-  reviewedAt:  { type: Date },
-  reviewedBy:  { type: Schema.Types.ObjectId, ref: 'GpAttUser' },
+  initial: { type: String, default: '' },
+  onIt: { type: String, default: '' },
+  impact: { type: String, default: '' },
+  notes: { type: String, default: '' },
+  issues: { type: String, default: '' },
+  status: { type: String, enum: ['draft', 'submitted', 'reviewed'], default: 'draft' },
+  submittedAt: { type: Date, default: null },
+  isGoodWeek: { type: Boolean, default: false },
+  adminNotes: { type: String, default: '' },
+  adminImpact: { type: String, default: '' },
+  adminIssues: { type: String, default: '' },
+  reviewedAt: { type: Date, default: null },
+  reviewedBy: { type: Schema.Types.ObjectId, ref: 'GpAttUser', default: null },
 }, { timestamps: true });
 
-// One tracker entry per employee per week per year
 WeeklyTrackerSchema.index({ employeeId: 1, year: 1, weekNumber: 1 }, { unique: true });
-// Efficient org-wide queries
 WeeklyTrackerSchema.index({ orgId: 1, year: 1, weekNumber: 1 });
 
-const WeeklyTracker =
-  mongoose.models.WeeklyTracker ||
-  mongoose.model<IWeeklyTracker>('WeeklyTracker', WeeklyTrackerSchema);
+const WeeklyTracker: Model<IWeeklyTracker> =
+  mongoose.models.GpWeeklyTracker ||
+  mongoose.model<IWeeklyTracker>('GpWeeklyTracker', WeeklyTrackerSchema);
 
 export default WeeklyTracker;
+

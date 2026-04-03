@@ -80,19 +80,13 @@ export function calculateLeaveDays(options: {
   return count;
 }
 
-export async function ensureLeaveBalance(employeeId: string) {
-  const existing = await LeaveBalance.findOne({ employeeId });
+export async function ensureLeaveBalance(employeeId: string, year?: number) {
+  const targetYear = year ?? new Date().getFullYear();
+  const existing = await LeaveBalance.findOne({ employeeId, year: targetYear });
   if (existing) return existing;
   const created = await LeaveBalance.create({
     employeeId,
-    paid: 12,
-    sick: 6,
-    casual: 6,
-    compOff: 0,
-    lop: 0,
-    encashable: 0,
-    encashed: 0,
-    ratePerDay: 0,
+    year: targetYear,
   });
   return created;
 }

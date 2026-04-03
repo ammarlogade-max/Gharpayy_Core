@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import mongoose from 'mongoose';
 import { connectDB } from '@/lib/db';
 import { getAuthUser } from '@/lib/auth';
 import { ZodError, z } from 'zod';
@@ -39,14 +40,18 @@ export async function GET() {
   try {
     const user = await getAuthUser();
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!mongoose.Types.ObjectId.isValid(user.id)) {
+      return NextResponse.json({ error: 'Invalid org id' }, { status: 400 });
+    }
+    const orgObjectId = new mongoose.Types.ObjectId(user.id);
 
     await connectDB();
 
-    let policy = await AttendancePolicy.findOne({ orgId: user.orgId }).lean();
+    const policy = await AttendancePolicy.findOne({ orgId: orgObjectId }).lean();
 
     if (!policy) {
       // Return defaults if no policy set
-      policy = {
+      const defaults = {
         lateGraceMinutes: 10,
         halfDayThresholdMinutes: 120,
         absentThresholdMinutes: 240,
@@ -63,6 +68,7 @@ export async function GET() {
         autoMarkAbsent: true,
         autoMarkAbsentAfterMidnight: true,
       };
+      return NextResponse.json({ ok: true, policy: defaults });
     }
 
     return NextResponse.json({ ok: true, policy });
@@ -80,8 +86,11 @@ export async function PUT(req: NextRequest) {
   try {
     const user = await getAuthUser();
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    if (!['admin', 'super_admin'].includes(user.role)) {
+    if (!['admin', 'sub_admin'].includes(user.role)) {
       return NextResponse.json({ error: 'Forbidden: admin only' }, { status: 403 });
+    }
+    if (!mongoose.Types.ObjectId.isValid(user.id)) {
+      return NextResponse.json({ error: 'Invalid org id' }, { status: 400 });
     }
 
     const body = await req.json().catch(() => ({}));
@@ -94,8 +103,9 @@ export async function PUT(req: NextRequest) {
 
     await connectDB();
 
+    const orgObjectId = new mongoose.Types.ObjectId(user.id);
     const policy = await AttendancePolicy.findOneAndUpdate(
-      { orgId: user.orgId },
+      { orgId: orgObjectId },
       { $set: { ...parsed, updatedBy: user.id, updatedAt: new Date() } },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );

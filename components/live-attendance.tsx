@@ -11,6 +11,7 @@ interface Employee {
   isCheckedIn: boolean;
   dayStatus: string;
   totalWorkMins: number;
+  totalBreakMins?: number;
   workMode?: string;
   lateByMins?: number;
   earlyByMins?: number;
@@ -92,6 +93,10 @@ export default function LiveAttendance() {
   const [lateTrend, setLateTrend] = useState<{ date: string; late: number; present: number }[]>([]);
   const [teamComparison, setTeamComparison] = useState<{ team: string; total: number; present: number; late: number }[]>([]);
   const [userRole, setUserRole] = useState('');
+  const [breakMode, setBreakMode] = useState<'today' | 'range' | 'weekly'>('today');
+  const [breakRows, setBreakRows] = useState<any[]>([]);
+  const [breakWeekly, setBreakWeekly] = useState<any[]>([]);
+  const [breakLoading, setBreakLoading] = useState(false);
 
   const fetchData = useCallback((date = selectedDate, zone = selectedZone, manager = selectedManager, status = statusFilter, from = dateFrom, to = dateTo, useRange = rangeMode) => {
     setLoading(true);
@@ -126,6 +131,29 @@ export default function LiveAttendance() {
       })
       .catch(() => {}).finally(() => setLoading(false));
   }, [selectedDate, selectedZone, selectedManager, statusFilter, dateFrom, dateTo, rangeMode]);
+
+  const fetchBreakReport = useCallback((mode = breakMode) => {
+    setBreakLoading(true);
+    const params = new URLSearchParams();
+    params.set('mode', mode);
+    params.set('date', selectedDate);
+    if (mode === 'range' && dateFrom && dateTo) {
+      params.set('dateFrom', dateFrom);
+      params.set('dateTo', dateTo);
+    }
+    if (selectedZone) params.set('team', selectedZone);
+    if (selectedManager) params.set('manager', selectedManager);
+    fetch(`/api/attendance/break-report?${params.toString()}`, { cache: 'no-store' })
+      .then(r => r.json())
+      .then(d => {
+        if (d.ok) {
+          setBreakRows(d.dailyRows || []);
+          setBreakWeekly(d.weeklySummary || []);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setBreakLoading(false));
+  }, [breakMode, selectedDate, dateFrom, dateTo, selectedZone, selectedManager]);
 
   useEffect(() => {
     fetchData();
@@ -162,6 +190,10 @@ export default function LiveAttendance() {
     if (filter === 'Present') setEmployees(all.filter(e => e.workMode === 'Present' || (e.isCheckedIn && !e.workMode)));
     else setEmployees(all.filter(e => e.workMode === filter || e.dayStatus === filter));
   }, [filter, all]);
+
+  useEffect(() => {
+    fetchBreakReport();
+  }, [breakMode, selectedDate, dateFrom, dateTo, selectedZone, selectedManager]);
 
   const openDrill = async (empId: string) => {
     setDrillLoading(true); setDrill(null);
@@ -373,6 +405,79 @@ export default function LiveAttendance() {
               );
             })}
           </div>
+        )}
+      </div>
+
+      {/* Break Report */}
+      <div style={card} className="p-5">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h2 className="text-sm font-bold text-gray-900">Day-wise Break Report</h2>
+            <div className="text-[10px]" style={{ color: '#6b7280' }}>
+              {selectedDate} - Break minutes (MM) for all employees
+            </div>
+          </div>
+        </div>
+        <div className="flex gap-2 mb-3">
+          {(['today', 'range', 'weekly'] as const).map(m => (
+            <button
+              key={m}
+              onClick={() => setBreakMode(m)}
+              className="px-3 py-1.5 rounded-xl text-xs font-semibold transition-all"
+              style={{
+                background: breakMode === m ? 'rgba(249,115,22,0.15)' : '#f9fafb',
+                color: breakMode === m ? '#f97316' : '#6b7280',
+                border: `1px solid ${breakMode === m ? 'rgba(249,115,22,0.3)' : 'transparent'}`,
+              }}
+            >
+              {m === 'today' ? 'Today' : m === 'range' ? 'Date Range' : 'Weekly'}
+            </button>
+          ))}
+        </div>
+        {breakLoading ? (
+          <div className="text-xs text-gray-500">Loading break data...</div>
+        ) : breakMode === 'weekly' ? (
+          breakWeekly.length === 0 ? (
+            <div className="text-xs text-gray-500">No records for this week.</div>
+          ) : (
+            <div className="space-y-2">
+              {[...breakWeekly]
+                .sort((a, b) => (b.totalBreakMins || 0) - (a.totalBreakMins || 0))
+                .map((emp: any) => (
+                  <div key={`break-week-${emp.employeeId}`} className="flex items-center justify-between p-3 rounded-xl border border-gray-100 bg-gray-50 text-xs">
+                    <div>
+                      <div className="text-sm font-semibold text-gray-900">{emp.employeeName}</div>
+                      <div className="text-[10px]" style={{ color: '#6b7280' }}>{emp.team} - {emp.role}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm font-bold text-gray-900">{emp.totalBreakMins || 0}m</div>
+                      <div className="text-[10px]" style={{ color: '#6b7280' }}>Work {emp.totalWorkMins || 0}m</div>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          )
+        ) : (
+          breakRows.length === 0 ? (
+            <div className="text-xs text-gray-500">No records for this range.</div>
+          ) : (
+            <div className="space-y-2">
+              {[...breakRows]
+                .sort((a, b) => (a.date === b.date ? (b.totalBreakMins || 0) - (a.totalBreakMins || 0) : b.date.localeCompare(a.date)))
+                .map((emp: any, idx: number) => (
+                  <div key={`break-${emp.employeeId}-${emp.date}-${idx}`} className="flex items-center justify-between p-3 rounded-xl border border-gray-100 bg-gray-50 text-xs">
+                    <div>
+                      <div className="text-sm font-semibold text-gray-900">{emp.employeeName}</div>
+                      <div className="text-[10px]" style={{ color: '#6b7280' }}>{emp.date} - {emp.team} - {emp.role}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm font-bold text-gray-900">{emp.totalBreakMins || 0}m</div>
+                      <div className="text-[10px]" style={{ color: '#6b7280' }}>Work {emp.totalWorkMins || 0}m</div>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          )
         )}
       </div>
 

@@ -1,176 +1,92 @@
 import { NextRequest, NextResponse } from 'next/server';
-import dbConnect from '@/lib/dbConnect';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
-import WeeklyTracker from '@/models/WeeklyTracker';
+import { connectDB } from '@/lib/db';
+import { getAuthUser } from '@/lib/auth';
+import Tracker from '@/models/Tracker';
+import User from '@/models/User';
+import { getISTDateStr } from '@/lib/attendance-utils';
+import { buildEmployeeFilter } from '@/lib/role-guards';
 
-// Helper: get ISO week number (1-52)
-function getWeekNumber(date: Date): number {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  const dayNum = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
-}
-
-// Helper: get week start (Monday) and end (Sunday) dates
-function getWeekDates(year: number, week: number) {
-  const jan4 = new Date(year, 0, 4);
-  const startOfWeek1 = new Date(jan4);
-  startOfWeek1.setDate(jan4.getDate() - (jan4.getDay() || 7) + 1);
-  const weekStart = new Date(startOfWeek1);
-  weekStart.setDate(startOfWeek1.getDate() + (week - 1) * 7);
-  const weekEnd = new Date(weekStart);
-  weekEnd.setDate(weekStart.getDate() + 6);
-  return {
-    start: weekStart.toISOString().split('T')[0],
-    end: weekEnd.toISOString().split('T')[0],
-  };
-}
-
-/**
- * GET /api/tracker
- * Employee: get own tracker entries
- * Admin: get all employees tracker for a given week/year
- * Query params: year, week, employeeId (admin only)
- */
 export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    const auth = await getAuthUser();
+    if (!auth || (auth.role !== 'admin' && auth.role !== 'manager' && auth.role !== 'sub_admin')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-    await dbConnect();
     const { searchParams } = new URL(req.url);
-    const year = parseInt(searchParams.get('year') || String(new Date().getFullYear()));
-    const week = searchParams.get('week') ? parseInt(searchParams.get('week')!) : null;
-    const employeeId = searchParams.get('employeeId');
-    const role = (session.user as { role?: string })?.role;
-    const userId = (session.user as { id?: string })?.id;
+    const date = searchParams.get('date') || getISTDateStr();
+    const status = searchParams.get('status') || '';
+    const role = searchParams.get('role') || '';
+    const department = searchParams.get('department') || '';
+    const teamName = searchParams.get('team') || '';
+    const employeeId = searchParams.get('employeeId') || '';
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '25')));
 
-    const filter: Record<string, unknown> = { year };
+    const baseFilter: any = { isApproved: { $ne: false } };
+    if (role) baseFilter.role = role;
+    if (department) baseFilter.department = department;
+    if (teamName) baseFilter.teamName = teamName;
+    if (employeeId) baseFilter._id = employeeId;
 
-    if (role === 'admin' || role === 'sub_admin') {
-      // Admin can query any employee or all employees
-      if (employeeId) filter.employeeId = employeeId;
-      if (week) filter.weekNumber = week;
-    } else {
-      // Employee sees only their own
-      filter.employeeId = userId;
-      if (week) filter.weekNumber = week;
-    }
+    const empFilter = buildEmployeeFilter(auth, baseFilter);
+    if (empFilter === null) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
 
-    const records = await WeeklyTracker.find(filter)
-      .sort({ weekNumber: -1 })
-      .populate('employeeId', 'fullName email')
-      .lean();
+    await connectDB();
+    const totalEmployees = await User.countDocuments(empFilter);
+    const employees = await User.find(empFilter)
+      .select('fullName email role teamName department jobRole managerId')
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .lean() as any[];
 
-    return NextResponse.json({ success: true, data: records });
-  } catch (err) {
-    return NextResponse.json({ success: false, error: 'Failed to fetch tracker data' }, { status: 500 });
-  }
-}
+    const employeeIds = employees.map(e => e._id);
+    const trackers = await Tracker.find({ date, employeeId: { $in: employeeIds } }).lean();
+    const trackerMap = new Map(trackers.map(t => [t.employeeId.toString(), t]));
 
-/**
- * POST /api/tracker
- * Employee saves/updates their weekly tracker (upsert)
- * Body: { weekNumber, year, g1, g2, g3, g4, glTours, selfRating, selfNotes, status }
- */
-export async function POST(req: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    let rows = employees.map(e => {
+      const t = trackerMap.get(e._id.toString());
+      const rowStatus = t?.isSubmitted
+        ? (t.isEdited ? 'edited' : 'submitted')
+        : 'missing';
+      return {
+        employeeId: e._id.toString(),
+        employeeName: e.fullName,
+        email: e.email,
+        role: e.role,
+        teamName: e.teamName || '',
+        department: e.department || '',
+        jobRole: e.jobRole || '',
+        status: rowStatus,
+        tracker: t || null,
+      };
+    });
 
-    await dbConnect();
-    const body = await req.json();
-    const userId = (session.user as { id?: string })?.id;
-    const orgId = (session.user as { orgId?: string })?.orgId;
+    if (status) rows = rows.filter(r => r.status === status);
 
-    const { weekNumber, year, g1, g2, g3, g4, glTours, selfRating, selfNotes, status } = body;
+    const allIds = await User.find(empFilter).select('_id').lean();
+    const allIdList = allIds.map(r => r._id);
+    const submittedToday = await Tracker.countDocuments({ date, employeeId: { $in: allIdList }, isSubmitted: true });
+    const editedToday = await Tracker.countDocuments({ date, employeeId: { $in: allIdList }, isEdited: true });
+    const missingToday = Math.max(0, totalEmployees - submittedToday);
 
-    if (!weekNumber || !year) {
-      return NextResponse.json({ success: false, error: 'weekNumber and year are required' }, { status: 400 });
-    }
-    if (weekNumber < 1 || weekNumber > 44) {
-      return NextResponse.json({ success: false, error: 'weekNumber must be between 1 and 44' }, { status: 400 });
-    }
-
-    const { start, end } = getWeekDates(year, weekNumber);
-
-    const updateData: Record<string, unknown> = {
-      weekStartDate: start,
-      weekEndDate: end,
-    };
-    if (g1 !== undefined) updateData.g1 = g1;
-    if (g2 !== undefined) updateData.g2 = g2;
-    if (g3 !== undefined) updateData.g3 = g3;
-    if (g4 !== undefined) updateData.g4 = g4;
-    if (glTours !== undefined) updateData.glTours = glTours;
-    if (selfRating !== undefined) updateData.selfRating = selfRating;
-    if (selfNotes !== undefined) updateData.selfNotes = selfNotes;
-    if (status === 'submitted') {
-      updateData.status = 'submitted';
-      updateData.submittedAt = new Date();
-    } else if (status === 'draft') {
-      updateData.status = 'draft';
-    }
-
-    const record = await WeeklyTracker.findOneAndUpdate(
-      { employeeId: userId, year, weekNumber },
-      {
-        $set: updateData,
-        $setOnInsert: { employeeId: userId, orgId, year, weekNumber },
+    return NextResponse.json({
+      ok: true,
+      date,
+      page,
+      limit,
+      totalEmployees,
+      totalPages: Math.max(1, Math.ceil(totalEmployees / limit)),
+      summary: {
+        totalEmployees,
+        submittedToday,
+        missingToday,
+        editedToday,
       },
-      { upsert: true, new: true, runValidators: true }
-    );
-
-    return NextResponse.json({ success: true, data: record });
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Failed to save tracker';
-    return NextResponse.json({ success: false, error: msg }, { status: 500 });
-  }
-}
-
-/**
- * PATCH /api/tracker
- * Admin reviews a tracker entry: set isGoodWeek, adminNotes, impact, issues, status=reviewed
- * Body: { trackerId, isGoodWeek, adminNotes, impact, issues }
- */
-export async function PATCH(req: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-    const role = (session.user as { role?: string })?.role;
-    if (role !== 'admin' && role !== 'sub_admin') {
-      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
-    }
-
-    await dbConnect();
-    const body = await req.json();
-    const { trackerId, isGoodWeek, adminNotes, impact, issues } = body;
-
-    if (!trackerId) {
-      return NextResponse.json({ success: false, error: 'trackerId is required' }, { status: 400 });
-    }
-
-    const updated = await WeeklyTracker.findByIdAndUpdate(
-      trackerId,
-      {
-        $set: {
-          isGoodWeek: isGoodWeek ?? false,
-          adminNotes: adminNotes || '',
-          impact: impact || '',
-          issues: issues || '',
-          status: 'reviewed',
-          reviewedAt: new Date(),
-          reviewedBy: (session.user as { id?: string })?.id,
-        },
-      },
-      { new: true }
-    );
-
-    if (!updated) return NextResponse.json({ success: false, error: 'Tracker not found' }, { status: 404 });
-    return NextResponse.json({ success: true, data: updated });
-  } catch {
-    return NextResponse.json({ success: false, error: 'Failed to review tracker' }, { status: 500 });
+      rows,
+    });
+  } catch (e: unknown) {
+    console.error('API error:', e);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

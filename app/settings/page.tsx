@@ -3,6 +3,7 @@ import { getAuthUser } from '@/lib/auth';
 import AdminLayout from '@/components/admin-layout';
 import EmployeeSidebar from '@/components/employee-sidebar';
 import WorkScheduleSettings from '@/components/work-schedule-settings';
+import WeeklyTrackerSettings from '@/components/weekly-tracker-settings';
 
 export default async function SettingsPage() {
   const user = await getAuthUser();
@@ -13,7 +14,14 @@ export default async function SettingsPage() {
   }
 
   if (user.role === 'admin') {
-    return <AdminLayout><WorkScheduleSettings /></AdminLayout>;
+    return (
+      <AdminLayout>
+        <div className="space-y-4">
+          <WorkScheduleSettings />
+          <WeeklyTrackerSettings />
+        </div>
+      </AdminLayout>
+    );
   }
 
   return (

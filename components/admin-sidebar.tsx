@@ -2,14 +2,17 @@
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
-  LayoutDashboard, Users, BarChart2, ClipboardList,
+  LayoutDashboard, Users, BarChart2, ClipboardList, ClipboardCheck,
   Bell, GitBranch, CheckSquare, FileText, LogOut, Menu, X, Settings, UserRound, Calendar
 } from 'lucide-react';
+import { getCurrentWeekInfo } from '@/lib/week-utils';
 
 const NAV_ITEMS = [
   { label: 'Workforce Overview', href: '/command-center', icon: LayoutDashboard },
   { label: 'Attendance Management', href: '/live-attendance', icon: Users },
   { label: 'Task Management Console', href: '/task-board', icon: ClipboardList },
+  { label: 'Daily Updates', href: '/admin/tracker', icon: ClipboardList },
+  { label: 'Weekly Tracker', href: '/admin/weekly-tracker', icon: ClipboardCheck },
   { label: 'Announcements Hub', href: '/notices', icon: Bell },
   { label: 'Performance Analytics', href: '/kpis', icon: BarChart2 },
   { label: 'Team Hierarchy', href: '/team-hierarchy', icon: GitBranch },
@@ -27,6 +30,8 @@ const MANAGER_ALLOWED = new Set([
   '/command-center',
   '/live-attendance',
   '/task-board',
+  '/admin/tracker',
+  '/admin/weekly-tracker',
   '/approvals',
   '/notices',
   '/team-hierarchy',
@@ -49,6 +54,7 @@ export default function AdminSidebar() {
   const [user, setUser] = useState<any>(null);
   const [noticeCount, setNoticeCount] = useState(0);
   const [approvalCount, setApprovalCount] = useState(0);
+  const [weeklyPending, setWeeklyPending] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -64,6 +70,14 @@ export default function AdminSidebar() {
         if (d.pendingCount !== undefined) setApprovalCount(d.pendingCount);
       })
       .catch(() => {});
+
+    const now = getCurrentWeekInfo();
+    fetch(`/api/tracker/weekly/analytics?year=${now.year}&week=${now.weekNumber}`, { cache: 'no-store' })
+      .then(r => r.json())
+      .then(d => {
+        if (d?.summary?.pendingReviews !== undefined) setWeeklyPending(d.summary.pendingReviews);
+      })
+      .catch(() => {});
   }, []);
 
   const logout = async () => {
@@ -77,6 +91,7 @@ export default function AdminSidebar() {
   const getBadge = (href: string) => {
     if (href === '/approvals') return approvalCount;
     if (href === '/notices') return noticeCount;
+    if (href === '/admin/weekly-tracker') return weeklyPending;
     return 0;
   };
 

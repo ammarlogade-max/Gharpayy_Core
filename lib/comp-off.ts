@@ -6,14 +6,17 @@ import { getPolicyForUser, ensureLeaveBalance, weekdayName } from '@/lib/leave-u
 
 export async function maybeCreditCompOff(employeeId: string, date: string, attendanceId?: string, minutesWorked = 0) {
   const policy = await getPolicyForUser(employeeId);
-  if (!policy?.compOffEnabled) return { credited: false };
+  const policyAny = policy as any;
+  if (!policyAny?.compOffEnabled) return { credited: false };
 
-  const threshold = Number(policy.overtimeAfterMinutes || 0);
-  if (policy.overtimeEnabled && minutesWorked < threshold) return { credited: false };
+  const threshold = Number(policyAny?.overtimeAfterMinutes ?? policyAny?.overtimeThresholdMinutes ?? 0);
+  if (policyAny?.overtimeEnabled && minutesWorked < threshold) return { credited: false };
 
   const holiday = await Holiday.findOne({ date }).lean();
   const user = await User.findById(employeeId).select('workSchedule').lean() as any;
-  const weekOffs = Array.isArray(user?.workSchedule?.weekOffs) ? user.workSchedule.weekOffs : [];
+  const weekOffs = Array.isArray(user?.workSchedule?.weekOffs) && user.workSchedule.weekOffs.length > 0
+    ? user.workSchedule.weekOffs
+    : Array.isArray(policyAny?.weeklyOffDays) ? policyAny.weeklyOffDays : [];
   const isWeekOff = weekOffs.map((d: string) => d.toLowerCase()).includes(weekdayName(date).toLowerCase());
   const isHoliday = !!holiday;
 
@@ -31,7 +34,7 @@ export async function maybeCreditCompOff(employeeId: string, date: string, atten
   });
 
   const balance = await ensureLeaveBalance(employeeId);
-  balance.compOff = Number(balance.compOff || 0) + 1;
+  balance.comp_off.total = Number(balance.comp_off?.total || 0) + 1;
   await balance.save();
 
   return { credited: true, source: isHoliday ? 'holiday' : 'week_off' };

@@ -1,7 +1,7 @@
 ﻿'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { LogOut, Clock, CheckCircle, XCircle, MapPin, Menu, X, Home, User, Bell, Calendar } from 'lucide-react';
+import { LogOut, Clock, CheckCircle, XCircle, MapPin, Menu, X, Home, User, Bell, Calendar, ClipboardList } from 'lucide-react';
 import EmployeeNav from '@/components/employee-nav';
 import NoticesEmployee from '@/components/notices-employee';
 
@@ -10,6 +10,8 @@ interface User { id: string; email: string; fullName: string; role: string; }
 const MOBILE_TABS = [
   { label: 'Home',          href: '/home',    icon: Home  },
   { label: 'My Attendance', href: '/clock',   icon: Clock },
+  { label: 'Daily Updates', href: '/tracker', icon: ClipboardList },
+  { label: 'Weekly Tracker', href: '/weekly-tracker', icon: ClipboardList },
   { label: 'My Leaves',     href: '/my-leaves', icon: Calendar },
   { label: 'My Profile',    href: '/profile', icon: User  },
   { label: 'Notices',       href: '/notices', icon: Bell  },
