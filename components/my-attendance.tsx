@@ -118,28 +118,16 @@ export default function MyAttendance() {
     }
   };
 
-  const requestOffReset = async () => {
+  const resetOffTomorrow = async () => {
     setLeaveSaving(true);
     try {
-      const tomorrow = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
-      tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
-      const date = tomorrow.toISOString().split('T')[0];
-      const r = await fetch('/api/exceptions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'off_tomorrow_reset',
-          date,
-          reason: 'Reset off tomorrow request',
-          requestedTime: null,
-        }),
-      });
+      const r = await fetch('/api/leaves/off-tomorrow', { method: 'DELETE' });
       const d = await r.json();
       if (d.ok) {
-        flash('Reset request sent for admin approval', true);
+        flash('Off tomorrow reset successfully', true);
         fetchStatus();
       } else {
-        flash(d.error || 'Unable to request reset', false);
+        flash(d.error || 'Unable to reset off tomorrow', false);
       }
     } catch {
       flash('Network error', false);
@@ -266,17 +254,11 @@ export default function MyAttendance() {
                     Off Tomorrow Confirmed
                   </div>
                 )}
-                {att?.offTomorrowStatus === 'reset_pending' && (
-                  <div className="w-full py-2.5 rounded-2xl text-xs font-semibold text-center"
-                    style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', color: '#f59e0b' }}>
-                    Reset Request Pending
-                  </div>
-                )}
                 {(att?.offTomorrowStatus === 'pending' || att?.offTomorrowStatus === 'approved') && (
-                  <button onClick={requestOffReset} disabled={leaveSaving}
+                  <button onClick={resetOffTomorrow} disabled={leaveSaving}
                     className="w-full py-2.5 rounded-2xl font-semibold text-xs disabled:opacity-50"
                     style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#ef4444' }}>
-                    {leaveSaving ? 'Sending...' : 'Request Reset (Admin Approval)'}
+                    {leaveSaving ? 'Resetting...' : 'Reset Off Tomorrow'}
                   </button>
                 )}
                 {/* Not clocked in */}

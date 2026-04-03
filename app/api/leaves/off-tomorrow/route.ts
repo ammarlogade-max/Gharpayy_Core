@@ -5,7 +5,8 @@ import User from '@/models/User';
 import mongoose from 'mongoose';
 import { IST_OFFSET_MS } from '@/lib/constants';
 import Leave from '@/models/Leave';
-import { getPolicyForUser, getHolidaysInRange, calculateLeaveDays } from '@/lib/leave-utils';
+import LeaveBalance from '@/models/LeaveBalance';
+import { getPolicyForUser, getHolidaysInRange, calculateLeaveDays, ensureLeaveBalance } from '@/lib/leave-utils';
 
 function getISTDate(offsetDays = 0) {
   const d = new Date(Date.now() + IST_OFFSET_MS);
@@ -36,7 +37,7 @@ export async function POST() {
       type: 'Casual',
       reason: 'Off tomorrow',
       status: { $in: ['pending', 'approved'] },
-    }).lean();
+    }).lean() as any;
 
     if (existingLeave) {
       return NextResponse.json({
@@ -78,6 +79,58 @@ export async function POST() {
       status: 'pending',
       leave,
     });
+  } catch (e: unknown) {
+    console.error('API error:', e);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+export async function DELETE() {
+  try {
+    const auth = await getAuthUser();
+    if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (auth.role === 'admin') return NextResponse.json({ error: 'Employee/manager action only' }, { status: 403 });
+
+    if (!mongoose.Types.ObjectId.isValid(auth.id)) {
+      return NextResponse.json({ error: 'Invalid user ID' }, { status: 400 });
+    }
+
+    await connectDB();
+    const user = await User.findById(auth.id);
+    if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
+
+    const tomorrow = getISTDate(1);
+    const offLeave = await Leave.findOne({
+      employeeId: auth.id,
+      startDate: tomorrow,
+      endDate: tomorrow,
+      type: 'Casual',
+      reason: 'Off tomorrow',
+      status: { $in: ['pending', 'approved'] },
+    });
+
+    if (!offLeave) {
+      return NextResponse.json({ ok: true, status: 'none', message: 'No off tomorrow request found' });
+    }
+
+    if (offLeave.status === 'approved') {
+      const balance = await ensureLeaveBalance(auth.id) as any;
+      const days = Number((offLeave as any).days || 1);
+      balance.casual = Number(balance.casual || 0) + days;
+      await balance.save();
+    }
+
+    offLeave.status = 'cancelled';
+    await offLeave.save();
+
+    // remove any legacy embedded off-tomorrow flag if present
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const leaves = Array.isArray((user as any).leaves) ? (user as any).leaves : [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (user as any).leaves = leaves.filter((l: any) => !(l.date === tomorrow && l.type === 'day_off'));
+    await user.save();
+
+    return NextResponse.json({ ok: true, status: 'cancelled' });
   } catch (e: unknown) {
     console.error('API error:', e);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

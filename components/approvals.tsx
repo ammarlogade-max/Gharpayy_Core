@@ -26,7 +26,6 @@ const TYPE_LABEL: Record<string, { label: string; color: string; bg: string }> =
   geo_failure:   { label: 'Geo Failure',   color: '#a855f7', bg: 'rgba(168,85,247,0.12)'  },
   early_exit:    { label: 'Early Exit',    color: '#10b981', bg: 'rgba(16,185,129,0.12)'  },
   account_approval: { label: 'Account Approval', color: '#0ea5e9', bg: 'rgba(14,165,233,0.12)' },
-  off_tomorrow_reset: { label: 'Off Tomorrow Reset', color: '#f97316', bg: 'rgba(249,115,22,0.12)' },
 };
 
 const AVATAR_COLORS = ['#f97316','#6366f1','#10b981','#a855f7','#f59e0b','#ef4444'];

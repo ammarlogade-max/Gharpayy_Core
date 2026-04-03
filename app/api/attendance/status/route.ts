@@ -3,7 +3,6 @@ import { connectDB } from '@/lib/db';
 import Attendance from '@/models/Attendance';
 import User from '@/models/User';
 import Leave from '@/models/Leave';
-import ExceptionRequest from '@/models/ExceptionRequest';
 import { getAuthUser } from '@/lib/auth';
 import { deriveStatusFromAttendance, getISTDateStr, getShiftRules, recomputeAttendanceTotals } from '@/lib/attendance-utils';
 import { IST_OFFSET_MS } from '@/lib/constants';
@@ -93,13 +92,7 @@ export async function GET() {
       type: 'Casual',
       reason: 'Off tomorrow',
       status: { $in: ['pending', 'approved'] },
-    }).lean();
-    const resetReq = await ExceptionRequest.findOne({
-      employeeId: user.id,
-      type: 'off_tomorrow_reset',
-      date: tomorrow,
-      status: 'pending',
-    }).lean();
+    }).lean() as any;
     const rules = await getShiftRules();
 
     if (!att) {
@@ -125,7 +118,7 @@ export async function GET() {
         isOffToday: Array.isArray(dbUser?.leaves) ? dbUser.leaves.some((l: any) => l.date === date && l.type === 'day_off') : false,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         isOffTomorrow: Array.isArray(dbUser?.leaves) ? dbUser.leaves.some((l: any) => l.date === tomorrow && l.type === 'day_off') : false,
-        offTomorrowStatus: resetReq ? 'reset_pending' : offLeave ? offLeave.status : 'none',
+        offTomorrowStatus: offLeave ? offLeave.status : 'none',
         session: {
           status: 'offline',
           clockInTime: null,
@@ -182,7 +175,7 @@ export async function GET() {
     const isOffToday = Array.isArray(dbUser?.leaves) ? dbUser.leaves.some((l: any) => l.date === date && l.type === 'day_off') : false;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const isOffTomorrow = Array.isArray(dbUser?.leaves) ? dbUser.leaves.some((l: any) => l.date === tomorrow && l.type === 'day_off') : false;
-    const offStatus = resetReq ? 'reset_pending' : offLeave ? offLeave.status : 'none';
+    const offStatus = offLeave ? offLeave.status : 'none';
 
     return NextResponse.json({
       isCheckedIn: att.isCheckedIn,

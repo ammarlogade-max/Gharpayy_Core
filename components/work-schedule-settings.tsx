@@ -14,6 +14,7 @@ export default function WorkScheduleSettings() {
   const [me, setMe] = useState<any>(null);
   const [employees, setEmployees] = useState<any[]>([]);
   const [targetId, setTargetId] = useState('');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [shiftType, setShiftType] = useState<ShiftType>('FT_MAIN');
   const [startTime, setStartTime] = useState('10:35');
   const [endTime, setEndTime] = useState('20:00');
@@ -22,6 +23,7 @@ export default function WorkScheduleSettings() {
   const [locked, setLocked] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [bulkSaving, setBulkSaving] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   const isAdmin = me?.role === 'admin';
@@ -52,7 +54,7 @@ export default function WorkScheduleSettings() {
         setMe(meData);
 
         if (meData?.role === 'admin' || meData?.role === 'manager') {
-          const r = await fetch('/api/employees', { cache: 'no-store' });
+          const r = await fetch('/api/employees?page=1&limit=100', { cache: 'no-store' });
           const d = await r.json();
           const users = Array.isArray(d.users) ? d.users.filter((u: any) => u.role === 'employee') : [];
           setEmployees(users);
@@ -80,6 +82,36 @@ export default function WorkScheduleSettings() {
       setMsg({ ok: false, text: e.message || 'Unable to load schedule' });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+  const toggleSelectAll = () => {
+    if (selectedIds.length === employees.length) setSelectedIds([]);
+    else setSelectedIds(employees.map(e => e._id));
+  };
+
+  const saveBulk = async () => {
+    if (!isAdmin || selectedIds.length === 0) return;
+    setBulkSaving(true);
+    setMsg(null);
+    try {
+      const body: any = { shiftType, startTime, endTime, breaks, weekOffs, userIds: selectedIds };
+      const r = await fetch('/api/work-schedule', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || 'Bulk save failed');
+      setMsg({ ok: true, text: `Shift updated for ${selectedIds.length} employee(s)` });
+      setSelectedIds([]);
+    } catch (e: any) {
+      setMsg({ ok: false, text: e.message || 'Bulk save failed' });
+    } finally {
+      setBulkSaving(false);
     }
   };
 
@@ -138,6 +170,35 @@ export default function WorkScheduleSettings() {
             >
               {employees.map((u: any) => <option key={u._id} value={u._id}>{u.fullName} ({u.email})</option>)}
             </select>
+          </div>
+        )}
+
+        {isAdmin && employees.length > 0 && (
+          <div className="p-3 rounded-xl" style={{ background: '#f9fafb', border: '1px solid #e5e7eb' }}>
+            <div className="flex items-center justify-between mb-2">
+              <label className="flex items-center gap-2 text-xs text-gray-700">
+                <input type="checkbox" checked={selectedIds.length === employees.length} onChange={toggleSelectAll} />
+                Select all for bulk update
+              </label>
+              {selectedIds.length > 0 && (
+                <button
+                  onClick={saveBulk}
+                  disabled={bulkSaving}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white disabled:opacity-60"
+                  style={{ background: '#f97316' }}
+                >
+                  {bulkSaving ? 'Applying...' : `Apply to ${selectedIds.length}`}
+                </button>
+              )}
+            </div>
+            <div className="max-h-40 overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-2">
+              {employees.map((u: any) => (
+                <label key={u._id} className="flex items-center gap-2 text-xs text-gray-700">
+                  <input type="checkbox" checked={selectedIds.includes(u._id)} onChange={() => toggleSelect(u._id)} />
+                  {u.fullName} ({u.email})
+                </label>
+              ))}
+            </div>
           </div>
         )}
 
