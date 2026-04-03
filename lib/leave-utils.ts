@@ -21,19 +21,11 @@ export function weekdayName(dateStr: string) {
   return d.toLocaleDateString('en-IN', { weekday: 'long', timeZone: 'Asia/Kolkata' });
 }
 
-export async function getDefaultPolicy() {
+export async function getDefaultPolicy(orgId?: string) {
   const existing = await AttendancePolicy.findOne({ isDefault: true }).lean();
   if (existing) return existing;
-  const created = await AttendancePolicy.create({
-    name: 'Default Policy',
-    isDefault: true,
-    graceMinutes: 15,
-    holidayExclusionEnabled: true,
-    weeklyOffExclusionEnabled: true,
-    overtimeEnabled: false,
-    overtimeAfterMinutes: 0,
-    compOffEnabled: true,
-  });
+  if (!orgId) return null;
+  const created = await AttendancePolicy.create({ orgId });
   return created.toObject();
 }
 
@@ -44,7 +36,7 @@ export async function getPolicyForUser(userId: string) {
     const policy = await AttendancePolicy.findOne({ shiftType }).lean();
     if (policy) return policy;
   }
-  return getDefaultPolicy();
+  return getDefaultPolicy(userId);
 }
 
 export async function getHolidaysInRange(startDate: string, endDate: string) {

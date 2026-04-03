@@ -28,32 +28,26 @@ export async function POST(_: NextRequest, ctx: { params: Promise<{ id: string }
     }
 
     const balance = await ensureLeaveBalance(String(leave.employeeId)) as any;
-    const days = Number(leave.days || 0);
+    const days = Number((leave as any).totalDays || 0);
+    const type = (leave as any).leaveType as string | undefined;
 
-    if (leave.type === 'Paid' && Number(balance.paid || 0) < days) {
-      return NextResponse.json({ error: 'Insufficient paid leave balance' }, { status: 400 });
+    const balanceTypes = ['casual', 'sick', 'earned', 'comp_off'] as const;
+    if (type && balanceTypes.includes(type as typeof balanceTypes[number])) {
+      const entry = balance[type] || { total: 0, used: 0, pending: 0 };
+      const available = Number(entry.total || 0) - Number(entry.used || 0) - Number(entry.pending || 0);
+      if (available < days) {
+        return NextResponse.json({ error: `Insufficient ${type} leave balance` }, { status: 400 });
+      }
+      entry.pending = Math.max(0, Number(entry.pending || 0) - days);
+      entry.used = Math.max(0, Number(entry.used || 0) + days);
+      balance[type] = entry;
+      await balance.save();
     }
-    if (leave.type === 'Sick' && Number(balance.sick || 0) < days) {
-      return NextResponse.json({ error: 'Insufficient sick leave balance' }, { status: 400 });
-    }
-    if (leave.type === 'Casual' && Number(balance.casual || 0) < days) {
-      return NextResponse.json({ error: 'Insufficient casual leave balance' }, { status: 400 });
-    }
-    if (leave.type === 'Comp Off' && Number(balance.compOff || 0) < days) {
-      return NextResponse.json({ error: 'Insufficient comp off balance' }, { status: 400 });
-    }
-
-    if (leave.type === 'Paid') balance.paid = Math.max(0, Number(balance.paid || 0) - days);
-    if (leave.type === 'Sick') balance.sick = Math.max(0, Number(balance.sick || 0) - days);
-    if (leave.type === 'Casual') balance.casual = Math.max(0, Number(balance.casual || 0) - days);
-    if (leave.type === 'Comp Off') balance.compOff = Math.max(0, Number(balance.compOff || 0) - days);
-    if (leave.type === 'LOP') balance.lop = Number(balance.lop || 0) + days;
-    await balance.save();
 
     leave.status = 'approved';
-    leave.approvedAt = new Date();
-    leave.approvedBy = auth.id;
-    leave.approvedByName = auth.fullName || auth.email;
+    leave.reviewedAt = new Date();
+    leave.reviewedBy = auth.id;
+    leave.reviewedByName = auth.fullName || auth.email;
     await leave.save();
 
     if (leave.reason === 'Off tomorrow') {
