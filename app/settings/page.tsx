@@ -4,6 +4,7 @@ import AdminLayout from '@/components/admin-layout';
 import EmployeeSidebar from '@/components/employee-sidebar';
 import WorkScheduleSettings from '@/components/work-schedule-settings';
 import WeeklyTrackerSettings from '@/components/weekly-tracker-settings';
+import CrmIntegrationSettings from '@/components/crm-integration-settings';
 
 export default async function SettingsPage() {
   const user = await getAuthUser();
@@ -19,6 +20,7 @@ export default async function SettingsPage() {
         <div className="space-y-4">
           <WorkScheduleSettings />
           <WeeklyTrackerSettings />
+          <CrmIntegrationSettings />
         </div>
       </AdminLayout>
     );
