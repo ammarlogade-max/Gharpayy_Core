@@ -6,10 +6,13 @@ import {
   autoCloseMissedClockOut,
   getISTDateStr,
   getShiftRules,
+  applyUserSchedule,
   getStatusByShiftRules,
   recomputeAttendanceTotals,
 } from '@/lib/attendance-utils';
 import { notifyLateAlert } from '@/lib/system-notifications';
+import User from '@/models/User';
+import Tracker from '@/models/Tracker';
 
 function fmtISTTimeLabel(date: Date) {
   return new Date(date).toLocaleTimeString('en-IN', {
@@ -20,18 +23,75 @@ function fmtISTTimeLabel(date: Date) {
   });
 }
 
+function getDefaultDailyCheckins() {
+  return [
+    { key: 'G1MYT', label: 'G1MYT', range: '10:30 AM - 12:00 PM', status: 'idle', targetCount: 0, progressNote: '', startedAt: '', completedAt: '', mytAdded: 0, toursInPipeline: 0, toursDone: 0, callsDone: 0, connected: 0, mytWhoWillPayToday: 0, tenantsPaid: 0, doubts: '', problems: '' },
+    { key: 'G2MYT', label: 'G2MYT', range: '12:00 PM - 2:15 PM', status: 'idle', targetCount: 0, progressNote: '', startedAt: '', completedAt: '', mytAdded: 0, toursInPipeline: 0, toursDone: 0, callsDone: 0, connected: 0, mytWhoWillPayToday: 0, tenantsPaid: 0, doubts: '', problems: '' },
+    { key: 'G3MYT', label: 'G3MYT', range: '2:30 PM - 4:00 PM', status: 'idle', targetCount: 0, progressNote: '', startedAt: '', completedAt: '', mytAdded: 0, toursInPipeline: 0, toursDone: 0, callsDone: 0, connected: 0, mytWhoWillPayToday: 0, tenantsPaid: 0, doubts: '', problems: '' },
+    { key: 'G4MYT', label: 'G4MYT', range: '4:00 PM - 5:35 PM', status: 'idle', targetCount: 0, progressNote: '', startedAt: '', completedAt: '', mytAdded: 0, toursInPipeline: 0, toursDone: 0, callsDone: 0, connected: 0, mytWhoWillPayToday: 0, tenantsPaid: 0, doubts: '', problems: '' },
+  ];
+}
+
 export async function POST(req: NextRequest) {
   try {
     const user = await getAuthUser();
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     if (user.role === 'admin') return NextResponse.json({ error: 'Admin cannot use attendance' }, { status: 400 });
 
-    const { lat, lng, type } = await req.json().catch(() => ({ lat: null, lng: null, type: null }));
+    const body = await req.json().catch(() => ({}));
+    const { lat, lng, type, selfieImage } = body;
     await connectDB();
     await autoCloseMissedClockOut(user.id);
+    
+    if (!selfieImage && type !== 'break_end' && type !== 'field_return') {
+       return NextResponse.json({ ok: false, error: 'Selfie verification is mandatory.' }, { status: 400 });
+    }
+
+    const OFFICE_LAT = 12.9348;
+    const OFFICE_LNG = 77.6112;
+    const OFFICE_RADIUS = 150;
+
+    const haversine = (l1: number, n1: number, l2: number, n2: number) => {
+      const R = 6371000;
+      const dLat = (l2 - l1) * Math.PI / 180;
+      const dLng = (n2 - n1) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) ** 2 + Math.cos(l1 * Math.PI / 180) * Math.cos(l2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    };
+
+    const dist = (lat && lng) ? haversine(lat, lng, OFFICE_LAT, OFFICE_LNG) : 999999;
+    const inOffice = dist <= OFFICE_RADIUS;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const dbUser = await User.findById(user.id).select('workSchedule').lean() as any;
+    const baseRules = await getShiftRules();
+    const rules = applyUserSchedule(baseRules, dbUser?.workSchedule);
 
     const date = getISTDateStr();
     let att = await Attendance.findOne({ employeeId: user.id, date });
+
+    // Ensure daily tracker record exists once employee clocks in
+    const existingTracker = await Tracker.findOne({ employeeId: user.id, date });
+    if (!existingTracker) {
+      await Tracker.create({
+        employeeId: user.id,
+        date,
+        role: user.role,
+        initial: '',
+        onIt: '',
+        impact: '',
+        notes: '',
+        issues: '',
+        dailyCheckins: getDefaultDailyCheckins(),
+        submittedAt: null,
+        isSubmitted: false,
+        isEdited: false,
+        submissionStatus: 'pending',
+        completionScore: 0,
+      });
+    } else if (!Array.isArray(existingTracker.dailyCheckins) || existingTracker.dailyCheckins.length === 0) {
+      existingTracker.dailyCheckins = getDefaultDailyCheckins();
+      await existingTracker.save();
+    }
 
     const now = new Date();
     const sessionType = type === 'field_return' ? 'field' : 'work';
@@ -44,7 +104,7 @@ export async function POST(req: NextRequest) {
         last.checkOut = now;
         last.minutes = mins;
       }
-      att.sessions.push({ checkIn: now, checkOut: null, type: 'work', minutes: 0, workMinutes: 0, lat: lat || null, lng: lng || null });
+      att.sessions.push({ checkIn: now, checkOut: null, type: 'work', minutes: 0, workMinutes: 0, lat: lat || null, lng: lng || null, inOffice, selfieImage });
       att.isCheckedIn = true;
       att.isOnBreak = false;
       att.workMode = 'Present';
@@ -63,7 +123,7 @@ export async function POST(req: NextRequest) {
         last.minutes = mins;
         last.workMinutes = mins;
       }
-      att.sessions.push({ checkIn: now, checkOut: null, type: 'work', minutes: 0, workMinutes: 0, lat: lat || null, lng: lng || null });
+      att.sessions.push({ checkIn: now, checkOut: null, type: 'work', minutes: 0, workMinutes: 0, lat: lat || null, lng: lng || null, inOffice, selfieImage });
       att.isCheckedIn = true;
       att.isInField = false;
       att.workMode = 'Present';
@@ -78,7 +138,6 @@ export async function POST(req: NextRequest) {
     if (att?.isInField) return NextResponse.json({ error: 'Field visit active. Return first.' }, { status: 400 });
 
     if (!att) {
-      const rules = await getShiftRules();
       const status = getStatusByShiftRules(now, rules);
       att = new Attendance({
         employeeId: user.id,
@@ -86,7 +145,7 @@ export async function POST(req: NextRequest) {
         dayStatus: status.dayStatus,
         lateByMins: status.lateByMins,
         earlyByMins: status.earlyByMins,
-        sessions: [{ checkIn: now, checkOut: null, type: sessionType, minutes: 0, workMinutes: 0, lat: lat || null, lng: lng || null }],
+        sessions: [{ checkIn: now, checkOut: null, type: sessionType, minutes: 0, workMinutes: 0, lat: lat || null, lng: lng || null, inOffice, selfieImage }],
         totalWorkMins: 0,
         totalBreakMins: 0,
         isCheckedIn: true,
@@ -95,11 +154,10 @@ export async function POST(req: NextRequest) {
         workMode: 'Present',
       });
     } else {
-      att.sessions.push({ checkIn: now, checkOut: null, type: sessionType, minutes: 0, workMinutes: 0, lat: lat || null, lng: lng || null });
+      att.sessions.push({ checkIn: now, checkOut: null, type: sessionType, minutes: 0, workMinutes: 0, lat: lat || null, lng: lng || null, inOffice, selfieImage });
       att.isCheckedIn = true;
       att.workMode = 'Present';
       if (att.sessions.length === 1) {
-        const rules = await getShiftRules();
         const status = getStatusByShiftRules(now, rules);
         att.dayStatus = status.dayStatus;
         att.lateByMins = status.lateByMins;
@@ -112,7 +170,6 @@ export async function POST(req: NextRequest) {
     await att.save();
 
     if (att.dayStatus === 'Late') {
-      const rules = await getShiftRules();
       await notifyLateAlert({
         employeeId: user.id,
         employeeName: user.fullName || user.email || 'Employee',
