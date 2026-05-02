@@ -135,7 +135,20 @@ export default function MyAttendance() {
       
       if (d.ok || d.success) {
         flash(getSuccessMsg(body, endpoint), true);
-        await fetchStatus();
+        
+        // Optimistic UI Update to hide latency on Vercel
+        setAtt((prev: any) => {
+          if (!prev) return prev;
+          if (endpoint.includes('checkout')) {
+            return { ...prev, isCheckedIn: false, isOnBreak: body.type === 'break_start', isInField: body.type === 'field_exit' };
+          }
+          if (endpoint.includes('checkin')) {
+            return { ...prev, isCheckedIn: true, isOnBreak: false, isInField: false };
+          }
+          return prev;
+        });
+
+        fetchStatus();
       } else {
         flash(d.error || 'Verification failed.', false);
       }
@@ -164,8 +177,6 @@ export default function MyAttendance() {
 
       setPendingAction(null);
       setShowSelfie(false);
-
-      await fetchStatus();
     } catch (err) {
       console.error("CAPTURE FLOW ERROR:", err);
       setPendingAction(null);
