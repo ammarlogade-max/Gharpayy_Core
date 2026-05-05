@@ -14,7 +14,7 @@ const PUBLIC = [
   '/api/integrations/crm/daily',
   '/api/zones',
   '/api/test',
-  // NOTE: /api/seed intentionally removed (security fix)
+  // NOTE: /api/seed intentionally removed from public routes (security fix)
 ];
 
 export function proxy(request: NextRequest) {
