@@ -1,6 +1,17 @@
 import mongoose from 'mongoose';
 import type { MongooseCache } from '@/types';
 
+// Import models here to ensure they are registered with Mongoose immediately
+import '@/models/User';
+import '@/models/HierarchyRole';
+import '@/models/Team';
+import '@/models/OfficeZone';
+import '@/models/GrowthProfile';
+import '@/models/GrowthEvent';
+import '@/models/QuestProgress';
+import '@/models/CoinLedger';
+import '@/models/Redemption';
+
 const MONGODB_URI = process.env.MONGODB_URI!;
 
 if (!MONGODB_URI) throw new Error('MONGODB_URI not set in .env.local');

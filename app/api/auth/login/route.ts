@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { connectDB } from '@/lib/db';
 import User from '@/models/User';
+import HierarchyRole from '@/models/HierarchyRole';
+import Team from '@/models/Team';
 import { signToken, verifyToken, COOKIE_NAME, COOKIE_OPTIONS } from '@/lib/auth';
 import { rateLimit } from '@/lib/rate-limit';
 import { loginSchema } from '@/lib/validations';
@@ -40,6 +42,9 @@ export async function POST(req: NextRequest) {
     // Non-admin: enforce schema
     const { email, password } = loginSchema.parse({ email: normEmail, password: normPass });
     await connectDB();
+    // Explicitly reference models to ensure registration
+    const _ref1 = HierarchyRole;
+    const _ref2 = Team;
     const user = await User.findOne({ email: email.toLowerCase() }).populate('hierarchyRoleId');
     if (!user) return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
 

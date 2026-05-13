@@ -7,9 +7,10 @@ import { Sparkles } from 'lucide-react';
 interface DashboardHeaderProps {
   user: any;
   attendance: any;
+  growthLevel?: number;
 }
 
-export function DashboardHeader({ user, attendance }: DashboardHeaderProps) {
+export function DashboardHeader({ user, attendance, growthLevel }: DashboardHeaderProps) {
   const [, setTick] = React.useState(0);
   React.useEffect(() => {
     const timer = setInterval(() => setTick(t => t + 1), 60000); // Update every minute is enough for header
@@ -65,6 +66,12 @@ export function DashboardHeader({ user, attendance }: DashboardHeaderProps) {
           <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-widest border-orange-200 text-orange-600 bg-orange-50">
             {role}
           </Badge>
+          {user?.growthEngineEnabled && (
+            <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-widest border-indigo-200 text-indigo-600 bg-indigo-50 flex gap-1 items-center">
+              <Sparkles className="w-3 h-3 fill-indigo-500" />
+              Level {growthLevel || 1}
+            </Badge>
+          )}
         </div>
       </div>
 

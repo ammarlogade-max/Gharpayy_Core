@@ -9,6 +9,7 @@ import { taskSchema } from '@/lib/validations';
 import { ZodError } from 'zod';
 import { getISTDateStr } from '@/lib/attendance-utils';
 import { isAdmin, isElevated, isSubAdmin, canAccessEmployee } from '@/lib/role-guards';
+import { emitGrowthEvent } from '@/lib/growth-events';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function buildSummary(tasks: any[]) {
@@ -146,12 +147,37 @@ export async function PATCH(req: NextRequest) {
       }
     }
 
+    const oldStatus = task.status;
     if (status) task.status = status;
     if (completionNote  !== undefined) task.completionNote  = completionNote;
     if (completionPhoto !== undefined) task.completionPhoto = completionPhoto;
     if (status === 'completed' && !task.completedAt) task.completedAt = new Date();
     if (status && status !== 'completed') task.completedAt = null;
     await task.save();
+
+    // Growth Engine Integration: Award XP for task completion
+    if (status === 'completed' && oldStatus !== 'completed') {
+      void emitGrowthEvent({
+        userId: task.assignedTo.toString(),
+        event: 'TASK_CLOSED',
+        sourceId: task._id.toString(),
+        sourceType: 'task'
+      });
+
+      // Bonus: Task Closed Early
+      if (task.dueDate && task.completedAt) {
+        const completedDateStr = getISTDateStr(task.completedAt);
+        if (completedDateStr < task.dueDate) {
+          void emitGrowthEvent({
+            userId: task.assignedTo.toString(),
+            event: 'TASK_CLOSED_EARLY',
+            sourceId: `${task._id.toString()}_early`,
+            sourceType: 'task',
+            note: `Completed on ${completedDateStr} before due date ${task.dueDate}`
+          });
+        }
+      }
+    }
     return NextResponse.json({ ok: true, task: normalizeTask(task) });
   } catch (e: unknown) {
     console.error('API error:', e);

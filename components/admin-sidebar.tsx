@@ -3,7 +3,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
   LayoutDashboard, Users, BarChart2, ClipboardList, ClipboardCheck,
-  Bell, GitBranch, CheckSquare, FileText, LogOut, Menu, X, Settings, UserRound, Calendar, Heart, Target, Lightbulb
+  Bell, GitBranch, CheckSquare, FileText, LogOut, Menu, X, Settings, UserRound, Calendar, Heart, Target, Lightbulb, Sparkles, ShieldCheck, Trophy, ShoppingBag
 } from 'lucide-react';
 import { getCurrentWeekInfo } from '@/lib/week-utils';
 import GiveKudoModal from '@/components/GiveKudoModal';
@@ -21,6 +21,14 @@ const NAV_ITEMS = [
   { label: 'Team Hierarchy', href: '/team-hierarchy', icon: GitBranch },
   { label: 'Approval Center', href: '/approvals', icon: CheckSquare },
   { label: '1:1 Sessions', href: '/coaching', icon: Lightbulb },
+  { label: 'Coach AI', href: '/coach-ai', icon: Sparkles },
+  { label: 'Growth Missions', href: '/growth/quests', icon: Target },
+  { label: 'Leaderboard', href: '/growth/leaderboard', icon: Trophy },
+  { label: 'Reward Shop', href: '/growth/shop', icon: ShoppingBag },
+  { label: 'Growth Governance', href: '/growth/admin', icon: ShieldCheck },
+  { label: 'Reward Management', href: '/growth/admin/rewards', icon: ShoppingBag },
+  { label: 'Quest Management', href: '/growth/admin/quests', icon: Target },
+  { label: 'Economy Analytics', href: '/growth/admin/analytics', icon: BarChart2 },
   { label: 'Reports', href: '/reports', icon: FileText },
   { label: 'Employee Management', href: '/admin', icon: Users },
   { label: 'Settings', href: '/admin/settings', icon: Settings },
@@ -42,6 +50,14 @@ const MANAGER_ALLOWED = new Set([
   '/kudos',
   '/arena-admin',
   '/coaching',
+  '/coach-ai',
+  '/growth/admin',
+  '/growth/admin/rewards',
+  '/growth/admin/quests',
+  '/growth/admin/analytics',
+  '/growth/quests',
+  '/growth/leaderboard',
+  '/growth/shop',
 ]);
 
 function initials(name: string) {
@@ -93,9 +109,14 @@ export default function AdminSidebar() {
     return 0;
   };
 
-  const flatItems = user?.role === 'manager'
+  const flatItems = (user?.role === 'manager'
     ? NAV_ITEMS.filter(item => MANAGER_ALLOWED.has(item.href))
-    : NAV_ITEMS;
+    : NAV_ITEMS
+  ).filter(item => {
+    const isGrowthAdmin = item.href === '/growth/admin';
+    if (isGrowthAdmin) return user?.growthEngineEnabled || process.env.NEXT_PUBLIC_ENABLE_GROWTH_ENGINE === 'true';
+    return true;
+  });
 
   return (
     <>

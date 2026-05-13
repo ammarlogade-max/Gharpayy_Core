@@ -14,6 +14,11 @@ import EmployeeSidebar from '@/components/employee-sidebar';
 import SelfieCapture from '@/components/selfie-capture';
 import { useToast } from '@/hooks/use-toast';
 import { getISTDateStr } from '@/lib/date-utils';
+import { XPBar } from '@/modules/growth/components/XPBar';
+import { StreakWidget } from '@/modules/growth/components/StreakWidget';
+import { AchievementBadge } from '@/modules/growth/components/AchievementBadge';
+import { Trophy, Target, ChevronRight, Sparkles as SparklesIcon } from 'lucide-react';
+import { useRouter as useNextRouter } from 'next/navigation';
 
 function fmtClock(secs: number) {
   const h = Math.floor(secs / 3600);
@@ -33,7 +38,9 @@ export default function Dashboard() {
   const [isKudoOpen, setIsKudoOpen] = useState(false);
   const [showSelfie, setShowSelfie] = useState(false);
   const [pendingAction, setPendingAction] = useState<any>(null);
+  const [growth, setGrowth] = useState<any>(null);
   const { toast } = useToast();
+  const router = useNextRouter();
 
   const fetchAtt = async () => {
     try {
@@ -62,11 +69,20 @@ export default function Dashboard() {
     setActivityLoading(false);
   };
 
+  const fetchGrowth = async () => {
+    try {
+      const res = await fetch('/api/growth/profile', { cache: 'no-store' });
+      const d = await res.json();
+      if (d.ok) setGrowth(d);
+    } catch {}
+  };
+
   useEffect(() => {
     fetch('/api/auth/me').then(r => r.json()).then(d => setUser(d)).catch(() => {});
     fetchAtt();
     fetchSummary();
     fetchActivity();
+    fetchGrowth();
 
     const attInterval = setInterval(fetchAtt, 30000);
     const summaryInterval = setInterval(fetchSummary, 60000);
@@ -136,7 +152,11 @@ export default function Dashboard() {
       <div className="md:ml-64">
         <div className="max-w-7xl mx-auto px-4 py-8 md:px-8 pb-24 md:pb-12">
 
-          <DashboardHeader user={user} attendance={att} />
+          <DashboardHeader 
+            user={user} 
+            attendance={att} 
+            growthLevel={growth?.profile?.level} 
+          />
 
           <QuickActions
             attendance={att}
@@ -198,6 +218,76 @@ export default function Dashboard() {
                 />
               </div>
               <PendingActions actions={summary?.pendingActions || []} loading={summaryLoading} />
+              
+              {/* Growth Section */}
+              {growth && user?.growthEngineEnabled && (
+                <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden">
+                  <div className="p-6 border-b border-gray-50 flex items-center justify-between bg-gradient-to-br from-orange-50/30 to-transparent">
+                    <div className="flex items-center gap-2">
+                      <div className="p-2 rounded-xl bg-orange-100/50 text-orange-600">
+                        <SparklesIcon className="w-4 h-4" />
+                      </div>
+                      <h3 className="text-sm font-black text-gray-900 tracking-tight">Arena Growth</h3>
+                    </div>
+                    <StreakWidget count={growth.profile.streakDays} />
+                  </div>
+                  
+                  <div className="p-6 space-y-6">
+                    <XPBar 
+                      currentXP={growth.profile.xp}
+                      level={growth.profile.level}
+                      xpInLevel={growth.profile.xpInLevel}
+                      xpForNextLevel={growth.profile.xpForNextLevel}
+                      progress={growth.profile.progress}
+                    />
+
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
+                          <Trophy className="w-3 h-3" />
+                          Top Achievements
+                        </h4>
+                        <button onClick={() => router.push('/growth/quests')} className="text-[10px] font-bold text-orange-600 hover:underline flex items-center">
+                          Missions <ChevronRight className="w-3 h-3" />
+                        </button>
+                      </div>
+                      
+                      <div className="flex gap-4 overflow-x-auto pb-2 no-scrollbar">
+                        {growth.achievements.list.slice(0, 3).map((ach: any) => (
+                          <AchievementBadge 
+                            key={ach.id}
+                            id={ach.id}
+                            title={ach.title}
+                            description={ach.description}
+                            level={ach.level}
+                            earned={ach.earned}
+                            progress={ach.progress}
+                            className="flex-shrink-0"
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 pt-2">
+                      <button 
+                        onClick={() => router.push('/growth/quests')}
+                        className="flex items-center justify-center gap-2 p-4 rounded-2xl bg-gray-50/50 border border-gray-100 hover:bg-orange-50/50 hover:border-orange-100 transition group"
+                      >
+                        <Target className="w-4 h-4 text-gray-400 group-hover:text-orange-500" />
+                        <span className="text-xs font-bold text-gray-700">Missions</span>
+                      </button>
+                      <button 
+                        onClick={() => router.push('/growth/leaderboard')}
+                        className="flex items-center justify-center gap-2 p-4 rounded-2xl bg-gray-50/50 border border-gray-100 hover:bg-orange-50/50 hover:border-orange-100 transition group"
+                      >
+                        <Trophy className="w-4 h-4 text-gray-400 group-hover:text-orange-500" />
+                        <span className="text-xs font-bold text-gray-700">Leaderboard</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <NotificationsPreview />
             </div>
           </div>

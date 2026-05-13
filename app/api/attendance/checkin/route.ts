@@ -13,6 +13,7 @@ import {
 import { notifyLateAlert } from '@/lib/system-notifications';
 import User from '@/models/User';
 import Tracker from '@/models/Tracker';
+import { emitGrowthEvent } from '@/lib/growth-events';
 
 function fmtISTTimeLabel(date: Date) {
   return new Date(date).toLocaleTimeString('en-IN', {
@@ -171,6 +172,16 @@ export async function POST(req: NextRequest) {
     recomputeAttendanceTotals(att);
     att.markModified('sessions');
     await att.save();
+    
+    // Growth Engine Integration: Award XP for on-time/early attendance
+    if (att.dayStatus === 'On Time' || att.dayStatus === 'Early') {
+      void emitGrowthEvent({
+        userId: user.id,
+        event: 'PERFECT_ATTENDANCE',
+        sourceId: att._id.toString(),
+        sourceType: 'attendance'
+      });
+    }
 
     if (att.dayStatus === 'Late') {
       await notifyLateAlert({

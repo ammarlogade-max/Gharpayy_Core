@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser } from '@/lib/auth';
 import { kudosStore } from '@/lib/kudos-store';
 import { NotificationService } from '@/modules/notifications/notification.service';
+import { emitGrowthEvent } from '@/lib/growth-events';
 
 export async function GET() {
   try {
@@ -53,6 +54,21 @@ export async function POST(req: NextRequest) {
         message: `${user.fullName || user.email} gave you a kudo for being "${tag}"!`,
         link: '/kudos',
         metadata: { kudoId: newKudo.id, fromName: user.fullName || user.email }
+      });
+
+      // Growth Engine Integration: Award XP for giving and receiving kudos
+      void emitGrowthEvent({
+        userId: user.id,
+        event: 'KUDO_GIVEN',
+        sourceId: `${newKudo.id}_sender`,
+        sourceType: 'kudo'
+      });
+
+      void emitGrowthEvent({
+        userId: toId,
+        event: 'KUDO_RECEIVED',
+        sourceId: `${newKudo.id}_recipient`,
+        sourceType: 'kudo'
       });
 
       return NextResponse.json({ ok: true, kudo: newKudo });

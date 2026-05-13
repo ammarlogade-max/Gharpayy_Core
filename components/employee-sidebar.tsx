@@ -1,7 +1,7 @@
 'use client';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { Clock, ClipboardList, ClipboardCheck, Bell, TrendingUp, History, LogOut, Settings, Menu, X, Calendar, Heart, LayoutDashboard, Target, Users, Lightbulb } from 'lucide-react';
+import { Clock, ClipboardList, ClipboardCheck, Bell, TrendingUp, History, LogOut, Settings, Menu, X, Calendar, Heart, LayoutDashboard, Target, Users, Lightbulb, Trophy, ShoppingBag } from 'lucide-react';
 import { NotificationBell } from '@/modules/notifications/components/NotificationBell';
 import WorkScheduleModal from '@/components/work-schedule-modal';
 import GiveKudoModal from '@/components/GiveKudoModal';
@@ -19,6 +19,9 @@ const NAV_ITEMS = [
   { label: '1:1 Sessions', href: '/coaching', icon: Lightbulb },
   { label: 'Kudos', href: '/kudos', icon: Heart },
   { label: 'My History', href: '/my-history', icon: History },
+  { label: 'Growth Missions', href: '/growth/quests', icon: Target },
+  { label: 'Leaderboard', href: '/growth/leaderboard', icon: Trophy },
+  { label: 'Reward Shop', href: '/growth/shop', icon: ShoppingBag },
   { label: 'Settings', href: '/settings', icon: Settings },
 ];
 
@@ -81,7 +84,13 @@ export default function EmployeeSidebar() {
 
         <nav className="flex-1 px-3 py-4 overflow-y-auto no-scrollbar">
           <div className="space-y-1">
-            {(user?.role === 'hr' ? HR_NAV_ITEMS : NAV_ITEMS).map(item => {
+            {(user?.role === 'hr' ? HR_NAV_ITEMS : NAV_ITEMS)
+              .filter(item => {
+                const isGrowth = ['/growth/quests', '/growth/leaderboard', '/growth/shop'].includes(item.href);
+                if (!isGrowth) return true;
+                return user?.growthEngineEnabled || process.env.NEXT_PUBLIC_ENABLE_GROWTH_ENGINE === 'true';
+              })
+              .map(item => {
               const active = isActive(item.href);
               const isNotice = item.href === '/notices';
               return (
@@ -176,9 +185,15 @@ export default function EmployeeSidebar() {
       </div>
 
       {mobileMenuOpen && (
-        <div className="md:hidden fixed top-[57px] left-0 right-0 z-50 bg-white border-b border-gray-200 shadow-sm">
-          {(user?.role === 'hr' ? HR_NAV_ITEMS : NAV_ITEMS).map(item => {
-            const active = isActive(item.href);
+        <div className="md:hidden fixed top-[57px] left-0 right-0 z-50 bg-white border-b border-gray-200 shadow-sm max-h-[70vh] overflow-y-auto">
+          {(user?.role === 'hr' ? HR_NAV_ITEMS : NAV_ITEMS)
+            .filter(item => {
+              const isGrowth = ['/growth/quests', '/growth/leaderboard', '/growth/shop'].includes(item.href);
+              if (!isGrowth) return true;
+              return user?.growthEngineEnabled || process.env.NEXT_PUBLIC_ENABLE_GROWTH_ENGINE === 'true';
+            })
+            .map(item => {
+              const active = isActive(item.href);
             return (
               <button
                 key={item.href}
