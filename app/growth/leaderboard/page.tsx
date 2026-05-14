@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import EmployeeLayout from '@/components/EmployeeLayout';
+import GrowthLayoutWrapper from '@/modules/growth/components/GrowthLayoutWrapper';
 
 export default function LeaderboardPage() {
   const [data, setData] = useState<any>(null);
@@ -39,7 +39,7 @@ export default function LeaderboardPage() {
   const others = data?.leaderboard?.slice(3) || [];
 
   return (
-    <EmployeeLayout>
+    <GrowthLayoutWrapper>
       <div className="space-y-8">
       {/* Header & Controls */}
       <div className="flex flex-col gap-6">
@@ -146,7 +146,13 @@ export default function LeaderboardPage() {
                       </div>
                       <div className="text-center">
                         <div className="text-base font-black text-gray-900 truncate w-40">{top3[0].name}</div>
-                        <div className="text-sm font-black text-orange-600">{top3[0].value.toLocaleString()} {type.toUpperCase()}</div>
+                        <div className="flex items-center justify-center gap-1.5 text-sm font-black text-orange-600">
+                          {type === 'coins' && <Coins className="w-4 h-4 text-yellow-500" />}
+                          {type === 'xp' && <Trophy className="w-4 h-4 text-orange-500" />}
+                          {type === 'streak' && <Flame className="w-4 h-4 text-orange-600" />}
+                          <span>{top3[0].value.toLocaleString()}</span>
+                          <span className="text-[10px] uppercase">{type}</span>
+                        </div>
                       </div>
                       <div className="w-full h-32 bg-gradient-to-t from-yellow-200 to-yellow-50 rounded-t-3xl shadow-inner mt-2 flex items-center justify-center border-t-2 border-yellow-300/30">
                          <Trophy className="w-10 h-10 text-yellow-400/50" />
@@ -260,6 +266,6 @@ export default function LeaderboardPage() {
         </div>
       )}
     </div>
-    </EmployeeLayout>
+    </GrowthLayoutWrapper>
   );
 }

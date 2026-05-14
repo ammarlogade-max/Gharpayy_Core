@@ -8,9 +8,11 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import EmployeeLayout from '@/components/EmployeeLayout';
+import GrowthLayoutWrapper from '@/modules/growth/components/GrowthLayoutWrapper';
+import { useRouter } from 'next/navigation';
 
 export default function ShopPage() {
+  const router = useRouter();
   const [data, setData] = useState<any>(null);
   const [redemptions, setRedemptions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,7 +27,13 @@ export default function ShopPage() {
       const shopData = await shopRes.json();
       const redData = await redRes.json();
       
-      if (shopData.ok) setData(shopData);
+      if (shopData.ok) {
+        if (shopData.isAdmin) {
+          router.push('/growth/admin/analytics');
+          return;
+        }
+        setData(shopData);
+      }
       if (redData.ok) setRedemptions(redData.redemptions);
     } catch (e) {
       toast.error("Failed to load shop data");
@@ -77,17 +85,17 @@ export default function ShopPage() {
 
   if (loading) {
     return (
-      <EmployeeLayout>
+      <GrowthLayoutWrapper>
         <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
           <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
           <p className="text-sm font-medium text-gray-500">Opening catalog...</p>
         </div>
-      </EmployeeLayout>
+      </GrowthLayoutWrapper>
     );
   }
 
   return (
-    <EmployeeLayout>
+    <GrowthLayoutWrapper>
       <div className="space-y-8">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div className="space-y-1">
@@ -220,8 +228,11 @@ export default function ShopPage() {
                       <td className="px-6 py-4 text-xs text-gray-500">
                         {new Date(r.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                       </td>
-                      <td className="px-6 py-4 text-sm font-black text-gray-900 text-right">
-                        {r.coinCost.toLocaleString()}
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5 text-sm font-black text-gray-900">
+                           <Coins className="w-3.5 h-3.5 text-yellow-500" />
+                           <span>{r.coinCost.toLocaleString()}</span>
+                        </div>
                       </td>
                       <td className="px-6 py-4 text-center">
                         {getStatusBadge(r.status)}
@@ -242,6 +253,6 @@ export default function ShopPage() {
         </TabsContent>
       </Tabs>
       </div>
-    </EmployeeLayout>
+    </GrowthLayoutWrapper>
   );
 }

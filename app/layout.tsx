@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { DM_Sans } from 'next/font/google'
 import './globals.css'
 import { NotificationProvider } from '@/modules/notifications/store/NotificationContext'
+import { Toaster } from 'sonner'
 
 const dmSans = DM_Sans({ subsets: ['latin'] });
 
@@ -21,6 +22,7 @@ export default function RootLayout({
         <NotificationProvider>
           {children}
         </NotificationProvider>
+        <Toaster position="top-center" richColors />
       </body>
     </html>
   );

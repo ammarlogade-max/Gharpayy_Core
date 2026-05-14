@@ -8,19 +8,8 @@ import CoinLedger from '@/models/CoinLedger';
 import Quest from '@/models/Quest';
 import { calculateLevelFromXP } from '@/lib/growth/xp-engine';
 import { GrowthLogger } from '@/lib/growth/logger';
+import { getISTDateStr, getISTWeekKey } from '@/lib/date-utils';
 import mongoose from 'mongoose';
-
-function todayKey() {
-  const d = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
-  return d.toISOString().split('T')[0];
-}
-
-function weekKey() {
-  const d = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
-  const onejan = new Date(d.getFullYear(), 0, 1);
-  const week = Math.ceil(((d.getTime() - onejan.getTime()) / 86400000 + onejan.getDay() + 1) / 7);
-  return `${d.getFullYear()}-W${week}`;
-}
 
 export async function POST(req: NextRequest) {
   try {
@@ -35,11 +24,14 @@ export async function POST(req: NextRequest) {
     if (!questId) return NextResponse.json({ error: 'questId required' }, { status: 400 });
 
     await connectDB();
+    if (!mongoose.Types.ObjectId.isValid(auth.id)) {
+      return NextResponse.json({ error: 'Admins cannot participate in quests' }, { status: 403 });
+    }
     const questDef: any = await Quest.findOne({ questId, active: true }).lean();
     if (!questDef) return NextResponse.json({ error: 'Quest not found or inactive' }, { status: 404 });
 
     const userId = new mongoose.Types.ObjectId(auth.id);
-    const pk = questDef.kind === 'daily' ? todayKey() : weekKey();
+    const pk = questDef.kind === 'daily' ? getISTDateStr() : getISTWeekKey();
 
     // 1. Validate Completion and Not Claimed (Atomic Update)
     const progress = await QuestProgress.findOneAndUpdate(

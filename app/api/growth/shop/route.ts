@@ -28,6 +28,16 @@ export async function GET(req: NextRequest) {
     await connectDB();
     await seedIfEmpty();
 
+    if (!mongoose.Types.ObjectId.isValid(auth.id)) {
+      const rewards = await Reward.find({ active: true }).sort({ coinCost: 1 }).lean();
+      return NextResponse.json({
+        ok: true,
+        rewards,
+        userCoins: 0,
+        isAdmin: true
+      });
+    }
+
     const userId = new mongoose.Types.ObjectId(auth.id);
     const profile = await GrowthProfile.findOne({ userId }).select('coins').lean();
 

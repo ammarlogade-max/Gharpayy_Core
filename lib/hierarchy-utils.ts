@@ -11,24 +11,22 @@ import mongoose from 'mongoose';
 export async function getHierarchySubtree(managerId: string): Promise<string[]> {
   if (!mongoose.Types.ObjectId.isValid(managerId)) return [];
 
-  const subtreeIds: string[] = [];
-  const queue: string[] = [managerId];
-  const processed = new Set<string>();
+  const results = await mongoose.model('GpAttUser').aggregate([
+    { $match: { _id: new mongoose.Types.ObjectId(managerId) } },
+    {
+      $graphLookup: {
+        from: 'gpattusers',
+        startWith: '$_id',
+        connectFromField: '_id',
+        connectToField: 'managerId',
+        as: 'reportingSubtree'
+      }
+    },
+    { $project: { 'reportingSubtree._id': 1 } }
+  ]).exec();
 
-  while (queue.length > 0) {
-    const currentId = queue.shift()!;
-    if (processed.has(currentId)) continue;
-    processed.add(currentId);
-
-    // Find direct reports
-    const reports = await User.find({ managerId: currentId }).select('_id').lean();
-    const reportIds = reports.map((r: any) => r._id.toString());
-    
-    subtreeIds.push(...reportIds);
-    queue.push(...reportIds);
-  }
-
-  return Array.from(new Set(subtreeIds));
+  if (!results.length || !results[0].reportingSubtree) return [];
+  return results[0].reportingSubtree.map((r: any) => r._id.toString());
 }
 
 /**

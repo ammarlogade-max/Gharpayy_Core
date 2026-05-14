@@ -33,6 +33,7 @@ function settled<T>(result: PromiseSettledResult<T>, fallback: T): T {
 export async function GET() {
   try {
     const user = await getAuthUser();
+    const start = Date.now();
 
     // FAIL-SAFE: admin always passes. Also allow hr, manager, team_lead via role or systemRole.
     const ALLOWED_ROLES = ['admin', 'manager', 'hr', 'team_lead', 'sub_admin'];
@@ -56,24 +57,16 @@ export async function GET() {
 
     // FAIL-SAFE hierarchy scope: admins/HR get all, managers get subtree
     let empFilter: Record<string, unknown> = { isApproved: { $ne: false }, role: 'employee' };
-    try {
-      const scoped = await buildScopedEmployeeFilter(user, { isApproved: { $ne: false }, role: 'employee' });
-      if (scoped) {
-        empFilter = scoped;
-      }
-      // If null (would mean employee), admins still get all
-      if (!scoped && isAdmin(user)) {
-        empFilter = { isApproved: { $ne: false }, role: 'employee' };
-      }
-    } catch (filterErr) {
-      console.error('[command-center] Scope filter failed, falling back to all employees:', filterErr);
-      if (!isAdmin(user)) {
-        empFilter = { managerId: user.id, isApproved: { $ne: false }, role: 'employee' };
-      }
+    const scoped = await buildScopedEmployeeFilter(user, { isApproved: { $ne: false }, role: 'employee' });
+    if (scoped) {
+      empFilter = scoped;
+    }
+    // If null (would mean employee), admins still get all
+    if (!scoped && isAdmin(user)) {
+      empFilter = { isApproved: { $ne: false }, role: 'employee' };
     }
 
-    const employees = await User.find(empFilter, 'fullName email officeZoneId')
-      .select('-profilePhoto')
+    const employees = await User.find(empFilter, 'fullName email officeZoneId playbookRole')
       .lean() as any[];
 
     const total = employees.length;
@@ -82,18 +75,26 @@ export async function GET() {
     // RESILIENT: Use Promise.allSettled so one failure doesn't crash everything
     const [todayAttRes, yAttRes, taskStatsRes, pendingApprovalsRes, trackerStatsRes, officeZonesRes] = 
       await Promise.allSettled([
-        Attendance.find({ employeeId: { $in: employeeIds }, date: today }).lean(),
-        Attendance.find({ employeeId: { $in: employeeIds }, date: yDate }).lean(),
+        Attendance.find({ employeeId: { $in: employeeIds }, date: today }, 'employeeId workMode dayStatus sessions isCheckedIn isOnBreak isInField').lean(),
+        Attendance.find({ employeeId: { $in: employeeIds }, date: yDate }, 'employeeId dayStatus').lean(),
         (async () => {
           const isManagerRole = ['manager', 'team_lead'].includes(legacyRole) || ['manager', 'team_lead'].includes(userRole);
           const taskFilter = isManagerRole ? { assignedTo: { $in: employeeIds } } : {};
-          const [taskTotal, blocked, completed, overdue] = await Promise.all([
-            Task.countDocuments(taskFilter),
-            Task.countDocuments({ ...taskFilter, status: 'blocked' }),
-            Task.countDocuments({ ...taskFilter, status: 'completed' }),
-            Task.countDocuments({ ...taskFilter, status: { $nin: ['completed', 'cancelled'] }, dueDate: { $lt: today } }),
+          
+          const stats = await Task.aggregate([
+            { $match: taskFilter },
+            { $group: {
+                _id: null,
+                total: { $sum: 1 },
+                blocked: { $sum: { $cond: [{ $eq: ['$status', 'blocked'] }, 1, 0] } },
+                completed: { $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] } },
+                overdue: { $sum: { $cond: [{ $and: [{ $not: { $in: ['$status', ['completed', 'cancelled']] } }, { $lt: ['$dueDate', today] }] }, 1, 0] } }
+              }
+            }
           ]);
-          return { total: taskTotal, blocked, completed, overdue };
+          
+          const { total = 0, blocked = 0, completed = 0, overdue = 0 } = stats[0] || {};
+          return { total, blocked, completed, overdue };
         })(),
         (async () => {
           const isManagerRole = ['manager', 'team_lead'].includes(legacyRole) || ['manager', 'team_lead'].includes(userRole);
@@ -113,13 +114,19 @@ export async function GET() {
           const weekStart = getISTDateDaysAgo(6);
           const monthStart = `${today.slice(0, 7)}-01`;
 
-          const [submittedToday, editedToday, submittedWeek, submittedMonth] = await Promise.all([
-            Tracker.countDocuments({ ...trackerFilter, date: today, isSubmitted: true }),
-            Tracker.countDocuments({ ...trackerFilter, date: today, isEdited: true }),
-            Tracker.countDocuments({ ...trackerFilter, date: { $gte: weekStart, $lte: today }, isSubmitted: true }),
-            Tracker.countDocuments({ ...trackerFilter, date: { $gte: monthStart, $lte: today }, isSubmitted: true }),
+          const stats = await Tracker.aggregate([
+            { $match: { ...trackerFilter, date: { $gte: monthStart, $lte: today } } },
+            { $group: {
+                _id: null,
+                submittedMonth: { $sum: { $cond: [{ $eq: ['$isSubmitted', true] }, 1, 0] } },
+                submittedWeek: { $sum: { $cond: [{ $and: [{ $gte: ['$date', weekStart] }, { $eq: ['$isSubmitted', true] }] }, 1, 0] } },
+                submittedToday: { $sum: { $cond: [{ $and: [{ $eq: ['$date', today] }, { $eq: ['$isSubmitted', true] }] }, 1, 0] } },
+                editedToday: { $sum: { $cond: [{ $and: [{ $eq: ['$date', today] }, { $eq: ['$isEdited', true] }] }, 1, 0] } }
+              }
+            }
           ]);
 
+          const { submittedToday = 0, editedToday = 0, submittedWeek = 0, submittedMonth = 0 } = stats[0] || {};
           return { trackerTotal, submittedToday, editedToday, submittedWeek, submittedMonth };
         })(),
         (async () => {

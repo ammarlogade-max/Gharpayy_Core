@@ -1,6 +1,8 @@
 'use client';
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { INotification, NotificationStore } from '../types';
+import { toast } from 'sonner';
+import { Trophy, Star, Sparkles } from 'lucide-react';
 
 const NotificationContext = createContext<NotificationStore | undefined>(undefined);
 
@@ -63,6 +65,32 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           return [notification, ...prev].slice(0, 50);
         });
         setUnreadCount(prev => prev + 1);
+
+        // --- Growth/Quest Toasts ---
+        if (notification.metadata?.type === 'quest_completion') {
+          toast.success(notification.title, {
+            description: notification.message,
+            icon: <Trophy className="w-5 h-5 text-orange-500" />,
+            duration: 5000
+          });
+        } else if (notification.metadata?.type === 'xp_gain') {
+          toast(notification.title, {
+            description: notification.message,
+            icon: <Sparkles className="w-4 h-4 text-orange-400" />,
+            duration: 3000
+          });
+        } else if (notification.metadata?.type === 'level_up') {
+          toast.success(notification.title, {
+            description: notification.message,
+            icon: <Star className="w-5 h-5 text-yellow-500 fill-yellow-500" />,
+            duration: 8000
+          });
+        } else {
+          toast(notification.title, { 
+            description: notification.message,
+            icon: notification.type === 'URGENT' ? '🚨' : undefined
+          });
+        }
       } catch (err) {
         // Heartbeat or malformed data
       }

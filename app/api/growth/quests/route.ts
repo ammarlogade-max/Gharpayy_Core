@@ -4,19 +4,8 @@ import { getAuthUser } from '@/lib/auth';
 import QuestProgress from '@/models/QuestProgress';
 import Quest from '@/models/Quest';
 import { ALL_QUESTS } from '@/lib/growth/quest-definitions';
+import { getISTDateStr, getISTWeekKey } from '@/lib/date-utils';
 import mongoose from 'mongoose';
-
-function todayKey() {
-  const d = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
-  return d.toISOString().split('T')[0];
-}
-
-function weekKey() {
-  const d = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
-  const onejan = new Date(d.getFullYear(), 0, 1);
-  const week = Math.ceil(((d.getTime() - onejan.getTime()) / 86400000 + onejan.getDay() + 1) / 7);
-  return `${d.getFullYear()}-W${week}`;
-}
 
 async function seedIfEmpty() {
   const allQuests = await Quest.find({}).sort({ createdAt: 1 });
@@ -53,6 +42,16 @@ export async function GET(req: NextRequest) {
     const auth = await getAuthUser();
     if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+    // SECTION 1: Fix Admin ObjectId Crashes
+    if (!mongoose.Types.ObjectId.isValid(auth.id)) {
+      return NextResponse.json({
+        ok: true,
+        isAdmin: true,
+        periods: { today: getISTDateStr(), week: getISTWeekKey() },
+        quests: { daily: [], weekly: [] }
+      });
+    }
+
     await connectDB();
     await seedIfEmpty();
     const userId = new mongoose.Types.ObjectId(auth.id);
@@ -61,8 +60,8 @@ export async function GET(req: NextRequest) {
     const dbQuests = await Quest.find({ active: true }).lean();
     
     // 2. Fetch Progress for current periods
-    const tk = todayKey();
-    const wk = weekKey();
+    const tk = getISTDateStr();
+    const wk = getISTWeekKey();
 
     const progressDocs = await QuestProgress.find({
       userId,

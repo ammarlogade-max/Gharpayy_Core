@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { ShieldCheck, Loader2, Check, X, Info, Search, Filter, History, User } from 'lucide-react';
+import { ShieldCheck, Loader2, Check, X, Info, Search, Filter, History, User, Coins } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -72,24 +72,24 @@ export default function GrowthAdminPage() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8 space-y-8">
+    <div className="max-w-6xl mx-auto px-4 py-8 space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1">
           <h1 className="text-3xl font-black text-gray-900 tracking-tight flex items-center gap-3">
-            <ShieldCheck className="w-8 h-8 text-indigo-600" />
+            <ShieldCheck className="w-8 h-8 text-orange-600" />
             Growth Governance
           </h1>
-          <p className="text-gray-500 font-medium">Review and manage reward redemptions across the organization.</p>
+          <p className="text-gray-500 font-medium text-sm">Review and manage reward redemptions across the organization.</p>
         </div>
 
-        <div className="flex bg-gray-100 p-1 rounded-2xl h-11 w-fit">
+        <div className="flex bg-gray-100 p-1 rounded-2xl h-11 w-fit border border-gray-200/50">
           {['pending', 'approved', 'fulfilled', 'all'].map(f => (
             <button
               key={f}
               onClick={() => setFilter(f)}
               className={cn(
-                "px-4 rounded-xl text-xs font-bold capitalize transition-all",
-                filter === f ? "bg-white text-indigo-600 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                "px-4 rounded-xl text-xs font-bold capitalize transition-all duration-200",
+                filter === f ? "bg-white text-orange-600 shadow-sm" : "text-gray-500 hover:text-gray-700"
               )}
             >
               {f}
@@ -100,11 +100,14 @@ export default function GrowthAdminPage() {
 
       {loading ? (
         <div className="flex flex-col items-center justify-center min-h-[40vh] gap-4">
-          <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
-          <p className="text-sm font-medium text-gray-500">Loading requests...</p>
+          <div className="relative">
+            <Loader2 className="w-10 h-10 animate-spin text-orange-500" />
+            <ShieldCheck className="w-4 h-4 text-orange-600 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+          </div>
+          <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">Loading Requests...</p>
         </div>
       ) : (
-        <div className="bg-white rounded-3xl border border-gray-200 overflow-hidden shadow-sm">
+        <div className="bg-white rounded-3xl border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead className="bg-gray-50 border-b border-gray-100">
@@ -119,33 +122,36 @@ export default function GrowthAdminPage() {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {redemptions.map((r: any) => (
-                  <tr key={r._id} className="hover:bg-gray-50/50 transition">
+                  <tr key={r._id} className="hover:bg-orange-50/30 transition group">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <Avatar className="w-8 h-8 border border-gray-200">
+                        <Avatar className="w-9 h-9 border-2 border-white shadow-sm ring-1 ring-gray-100">
                           <AvatarImage src={r.userId?.profilePhoto} />
-                          <AvatarFallback className="bg-indigo-50 text-indigo-700 font-bold text-[10px]">
-                            {r.userId?.fullName?.split(' ').map((n:any) => n[0]).join('').toUpperCase()}
+                          <AvatarFallback className="bg-orange-50 text-orange-700 font-black text-[10px]">
+                            {r.userId?.fullName?.split(' ').map((n:any) => n[0]).join('').toUpperCase() || '??'}
                           </AvatarFallback>
                         </Avatar>
                         <div>
-                          <div className="text-sm font-bold text-gray-900">{r.userId?.fullName || 'User'}</div>
-                          <div className="text-[10px] text-gray-500">{r.userId?.teamName || 'No Team'}</div>
+                          <div className="text-sm font-bold text-gray-900 group-hover:text-orange-600 transition-colors">{r.userId?.fullName || 'Anonymous'}</div>
+                          <div className="text-[10px] text-gray-400 font-medium">{r.userId?.teamName || 'No Team Assigned'}</div>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="text-sm font-bold text-gray-900">{r.rewardTitle}</div>
+                      <div className="text-sm font-bold text-gray-800">{r.rewardTitle}</div>
                       {r.notes && <div className="text-[10px] text-gray-400 italic truncate max-w-[150px]">"{r.notes}"</div>}
                     </td>
-                    <td className="px-6 py-4 text-sm font-black text-gray-900 text-right">
-                      {r.coinCost.toLocaleString()}
+                    <td className="px-6 py-4 text-right">
+                       <div className="flex items-center justify-end gap-1">
+                          <span className="text-sm font-black text-gray-900">{r.coinCost.toLocaleString()}</span>
+                          <Coins className="w-3 h-3 text-yellow-500" />
+                       </div>
                     </td>
-                    <td className="px-6 py-4 text-xs text-gray-500">
-                      {new Date(r.createdAt).toLocaleDateString('en-IN')}
+                    <td className="px-6 py-4 text-xs text-gray-500 font-medium">
+                      {new Date(r.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                     </td>
                     <td className="px-6 py-4 text-center">
-                       <Badge className={cn("text-[9px] font-bold border-none capitalize", getStatusColor(r.status))}>
+                       <Badge className={cn("text-[9px] font-black border-none px-2.5 py-1 rounded-full uppercase tracking-tighter", getStatusColor(r.status))}>
                          {r.status}
                        </Badge>
                     </td>
@@ -155,7 +161,7 @@ export default function GrowthAdminPage() {
                            <Button 
                              size="sm" 
                              variant="outline" 
-                             className="h-8 w-8 p-0 rounded-lg text-red-600 border-red-200 hover:bg-red-50"
+                             className="h-8 w-8 p-0 rounded-xl text-red-600 border-red-100 hover:bg-red-50 hover:border-red-200 transition-all"
                              disabled={processingId === r._id}
                              onClick={() => handleAction(r._id, 'rejected')}
                            >
@@ -163,7 +169,7 @@ export default function GrowthAdminPage() {
                            </Button>
                            <Button 
                              size="sm" 
-                             className="h-8 w-8 p-0 rounded-lg bg-green-600 hover:bg-green-700 text-white"
+                             className="h-8 w-8 p-0 rounded-xl bg-green-600 hover:bg-green-700 text-white shadow-sm shadow-green-100 transition-all hover:scale-105"
                              disabled={processingId === r._id}
                              onClick={() => handleAction(r._id, 'approved')}
                            >
@@ -174,11 +180,11 @@ export default function GrowthAdminPage() {
                        {r.status === 'approved' && (
                          <Button 
                            size="sm" 
-                           className="h-8 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold"
+                           className="h-8 px-4 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-[10px] font-black uppercase tracking-wider shadow-sm shadow-orange-100 transition-all hover:scale-105"
                            disabled={processingId === r._id}
                            onClick={() => handleAction(r._id, 'fulfilled')}
                          >
-                           Fulfill Reward
+                           Fulfill
                          </Button>
                        )}
                     </td>

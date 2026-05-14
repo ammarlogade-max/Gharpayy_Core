@@ -25,10 +25,34 @@ const cached: MongooseCache = global.mongooseCache || { conn: null, promise: nul
 
 export async function connectDB() {
   if (cached.conn) return cached.conn;
+
   if (!cached.promise) {
-    cached.promise = mongoose.connect(MONGODB_URI, { bufferCommands: false });
+    const opts = {
+      bufferCommands: false,
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
+      maxPoolSize: 50,
+      minPoolSize: 5,
+      connectTimeoutMS: 10000,
+      family: 4 // Use IPv4, skip trying IPv6
+    };
+    
+    cached.promise = mongoose.connect(MONGODB_URI, opts).then((mongoose) => {
+      return mongoose;
+    }).catch(err => {
+      cached.promise = null; // allow retry
+      console.error('MongoDB connection error:', err);
+      throw err;
+    });
   }
-  cached.conn = await cached.promise;
-  global.mongooseCache = cached;
+
+  try {
+    cached.conn = await cached.promise;
+    global.mongooseCache = cached;
+  } catch (e) {
+    cached.promise = null;
+    throw e;
+  }
+  
   return cached.conn;
 }

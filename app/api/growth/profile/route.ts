@@ -19,6 +19,17 @@ export async function GET(req: NextRequest) {
     const auth = await getAuthUser();
     if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+    // SECTION 1: Fix Admin ObjectId Crashes
+    if (!mongoose.Types.ObjectId.isValid(auth.id)) {
+      return NextResponse.json({
+        ok: true,
+        isAdmin: true,
+        profile: { xp: 0, coins: 0, streakDays: 0, level: 1, progressPercentage: 0 },
+        achievements: { total: 0, earned: 0, list: [] },
+        recentEvents: []
+      });
+    }
+
     await connectDB();
     const userId = new mongoose.Types.ObjectId(auth.id);
 

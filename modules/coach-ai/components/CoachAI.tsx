@@ -13,10 +13,8 @@ import {
   Database,
   ClipboardCheck,
   Download,
-  Share2,
-  CheckCircle2
+  Share2
 } from 'lucide-react';
-import { generateGharpayyInsight } from '../lib/intelligence-engine';
 import { exportOperationalReport } from '../lib/export-engine';
 import { FollowUpPrompts } from './FollowUpPrompts';
 import { useToast } from '@/hooks/use-toast';
@@ -38,68 +36,68 @@ interface Message {
   isDirective?: boolean;
 }
 
+const TypewriterText = ({ text, onComplete }: { text: string; onComplete?: () => void }) => {
+  const [displayedText, setDisplayedText] = useState('');
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    if (index < text.length) {
+      const timer = setTimeout(() => {
+        setDisplayedText(prev => prev + text[index]);
+        setIndex(prev => prev + 1);
+      }, 5); // Fast typing speed
+      return () => clearTimeout(timer);
+    } else if (onComplete) {
+      onComplete();
+    }
+  }, [index, text, onComplete]);
+
+  return <MarkdownContent content={displayedText} />;
+};
+
 const MarkdownContent = ({ content }: { content: string }) => {
-  const sections = content.split('***');
-  
+  // Enhanced parsing to support better Markdown hierarchy
   const renderLines = (text: string) => {
     const lines = text.split('\n');
     return lines.map((line, i) => {
       if (line.startsWith('# ')) {
-        return <h1 key={i} className="text-xl font-bold text-gray-900 mt-4 mb-2">{line.replace('# ', '')}</h1>;
+        return <h1 key={i} className="text-xl font-bold text-gray-900 mt-6 mb-3 flex items-center gap-2">
+          <div className="w-1.5 h-6 bg-orange-500 rounded-full" />
+          {line.replace('# ', '')}
+        </h1>;
       }
       if (line.startsWith('## ')) {
-        return <h2 key={i} className="text-lg font-semibold text-gray-800 mt-3 mb-1 border-b border-gray-100 pb-1">{line.replace('## ', '')}</h2>;
+        return <h2 key={i} className="text-lg font-bold text-gray-800 mt-5 mb-2 border-b border-gray-100 pb-1 uppercase tracking-tight">{line.replace('## ', '')}</h2>;
       }
       if (line.startsWith('### ')) {
-        return <h3 key={i} className="text-md font-bold text-orange-600 mt-3">{line.replace('### ', '')}</h3>;
+        return <h3 key={i} className="text-sm font-bold text-orange-600 mt-4 mb-1">{line.replace('### ', '')}</h3>;
       }
-      if (line.startsWith('- ')) {
+      if (line.startsWith('- ') || line.startsWith('* ')) {
+        const cleanLine = line.replace(/^[-*]\s+/, '');
         return (
-          <div key={i} className="flex gap-2 items-start ml-1">
-            <div className="w-1 h-1 rounded-full bg-orange-400 mt-2 flex-shrink-0" />
+          <div key={i} className="flex gap-3 items-start ml-1 my-1">
+            <div className="w-1.5 h-1.5 rounded-full bg-orange-300 mt-1.5 flex-shrink-0" />
             <p className="text-sm text-gray-600 leading-relaxed">
-              {line.replace('- ', '').split('**').map((part, index) => 
-                index % 2 === 1 ? <strong key={index} className="text-gray-900 font-semibold">{part}</strong> : part
+              {cleanLine.split('**').map((part, index) => 
+                index % 2 === 1 ? <strong key={index} className="text-gray-900 font-bold">{part}</strong> : part
               )}
             </p>
           </div>
         );
       }
-      if (line.trim() === '') return <div key={i} className="h-1" />;
+      if (line.trim() === '') return <div key={i} className="h-2" />;
       
       return (
-        <p key={i} className="text-sm leading-relaxed text-gray-600">
+        <p key={i} className="text-sm leading-relaxed text-gray-600 my-1">
           {line.split('**').map((part, index) => 
-            index % 2 === 1 ? <strong key={index} className="text-gray-900 font-semibold">{part}</strong> : part
+            index % 2 === 1 ? <strong key={index} className="text-gray-900 font-bold">{part}</strong> : part
           )}
         </p>
       );
     });
   };
 
-  return (
-    <div className="space-y-6">
-      <div className={`space-y-3 text-gray-700 p-4 rounded-xl border ${sections.length > 1 ? 'bg-gray-50/30 border-gray-100' : 'bg-white border-transparent p-0'}`}>
-        {sections.length > 1 && (
-          <div className="flex items-center gap-2 mb-2">
-            <Database className="w-3 h-3 text-gray-400" />
-            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Deterministic Summary</span>
-          </div>
-        )}
-        {renderLines(sections[0])}
-      </div>
-      
-      {sections[1] && (
-        <div className="space-y-3 text-gray-700 p-2">
-          <div className="flex items-center gap-2 mb-2">
-            <BrainCircuit className="w-3 h-3 text-orange-400" />
-            <span className="text-[10px] font-bold text-orange-400 uppercase tracking-widest">Executive Interpretation</span>
-          </div>
-          {renderLines(sections[1])}
-        </div>
-      )}
-    </div>
-  );
+  return <div className="space-y-1">{renderLines(content)}</div>;
 };
 
 export default function CoachAI() {
@@ -109,7 +107,9 @@ export default function CoachAI() {
   const [operationalData, setOperationalData] = useState<any | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isExporting, setIsExporting] = useState<string | null>(null);
+  const [lastMessageId, setLastMessageId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const isAtBottom = useRef(true);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -130,72 +130,109 @@ export default function CoachAI() {
   };
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    const el = scrollRef.current;
+    if (el && isAtBottom.current) {
+      el.scrollTop = el.scrollHeight;
     }
   }, [messages, isTyping]);
+
+  const handleScroll = () => {
+    const el = scrollRef.current;
+    if (el) {
+      const offset = 50;
+      isAtBottom.current = el.scrollHeight - el.scrollTop <= el.clientHeight + offset;
+    }
+  };
 
   const handleSend = async (query: string, isDirective: boolean = false) => {
     if (!query.trim()) return;
     
-    if (!isDirective) {
-      const userMsg: Message = {
-        id: Math.random().toString(36).substring(7),
-        role: 'user',
-        content: query,
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, userMsg]);
-    }
+    const userMsg: Message = {
+      id: Math.random().toString(36).substring(7),
+      role: 'user',
+      content: query,
+      timestamp: new Date()
+    };
     
+    setMessages(prev => [...prev, userMsg]);
     setInputValue('');
     setIsTyping(true);
     
-    // Refresh data for fresh analysis
-    await fetchData();
+    try {
+      // 1. Get latest operational data for context
+      const dataRes = await fetch('/api/command-center', { cache: 'no-store' });
+      const opData = await dataRes.json();
 
-    setTimeout(() => {
-      if (operationalData) {
-        const result = generateGharpayyInsight(operationalData, query, isDirective);
+      // 2. Prepare chat history for AI context
+      const chatHistory = messages.map(m => ({
+        role: m.role,
+        content: m.content
+      }));
+      chatHistory.push({ role: 'user', content: query });
+
+      // 3. Call Groq-powered Chat API
+      const res = await fetch('/api/coach-ai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: chatHistory,
+          operationalData: opData.ok ? opData : (operationalData || {}),
+          isDirective
+        }),
+      });
+
+      const data = await res.json();
+      
+      if (data.ok) {
         const aiMsg: Message = {
           id: Math.random().toString(36).substring(7),
           role: 'assistant',
-          content: result.content,
+          content: data.content,
           timestamp: new Date(),
-          dataSnapshot: {
-            healthScore: operationalData.healthScore,
-            kpis: operationalData.kpis,
+          dataSnapshot: opData.ok ? {
+            healthScore: opData.healthScore,
+            kpis: opData.kpis,
             query
-          },
-          followUps: result.followUps,
+          } : undefined,
+          followUps: data.followUps || [],
           isDirective
         };
         setMessages(prev => [...prev, aiMsg]);
+        setLastMessageId(aiMsg.id);
+      } else {
+        throw new Error(data.error || 'Failed to generate insight');
       }
+    } catch (error: any) {
+      toast({
+        title: "Coaching Error",
+        description: error.message || "Failed to reach Coach AI. Please check your connection.",
+        variant: "destructive"
+      });
+    } finally {
       setIsTyping(false);
-    }, 1200);
+    }
   };
 
-  const handleExport = (msg: Message) => {
+  const handleExport = async (msg: Message) => {
     setIsExporting(msg.id);
     try {
-      exportOperationalReport(msg.content, {
+      await exportOperationalReport(msg.content, {
         timestamp: msg.timestamp,
         healthScore: msg.dataSnapshot?.healthScore,
         query: msg.dataSnapshot?.query || 'Operational Analysis'
       });
       toast({
-        title: "Report Generated",
-        description: "Executive operational briefing has been downloaded.",
+        title: "PDF Generated",
+        description: "Executive briefing downloaded as PDF.",
       });
     } catch (error) {
       toast({
         title: "Export Failed",
-        description: "Unable to generate the operational report.",
+        description: "Unable to generate PDF. Please try again.",
         variant: "destructive"
       });
     } finally {
-      setTimeout(() => setIsExporting(null), 1000);
+      setTimeout(() => setIsExporting(null), 1200);
     }
   };
 
@@ -231,6 +268,7 @@ export default function CoachAI() {
       {/* Intelligence Feed */}
       <div 
         ref={scrollRef}
+        onScroll={handleScroll}
         className="flex-1 overflow-y-auto p-6 space-y-8 bg-[#fcfcfc] no-scrollbar scroll-smooth"
       >
         {messages.length === 0 && (
@@ -286,7 +324,15 @@ export default function CoachAI() {
                 </div>
 
                 <div className="p-6">
-                  <MarkdownContent content={msg.content} />
+                  {msg.id === lastMessageId ? (
+                    <TypewriterText text={msg.content} onComplete={() => {
+                      if (scrollRef.current && isAtBottom.current) {
+                        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+                      }
+                    }} />
+                  ) : (
+                    <MarkdownContent content={msg.content} />
+                  )}
                   
                   {/* Follow-up Section */}
                   {!isTyping && index === messages.length - 1 && (
@@ -310,14 +356,19 @@ export default function CoachAI() {
                   <button 
                     onClick={() => handleExport(msg)}
                     disabled={isExporting === msg.id}
-                    className="flex items-center gap-2 text-[10px] font-bold text-gray-400 hover:text-gray-600 uppercase tracking-wider transition-colors group disabled:opacity-50"
+                    className="flex items-center gap-2 text-[10px] font-bold text-gray-400 hover:text-gray-600 uppercase tracking-wider transition-colors group disabled:opacity-60"
                   >
                     {isExporting === msg.id ? (
-                      <CheckCircle2 className="w-3 h-3 text-green-500" />
+                      <>
+                        <Loader2 className="w-3 h-3 animate-spin text-orange-500" />
+                        <span className="text-orange-500">Generating PDF...</span>
+                      </>
                     ) : (
-                      <Download className="w-3 h-3 group-hover:-translate-y-0.5 transition-transform" />
+                      <>
+                        <Download className="w-3 h-3 group-hover:-translate-y-0.5 transition-transform" />
+                        Export Briefing
+                      </>
                     )}
-                    {isExporting === msg.id ? 'Exporting...' : 'Export Briefing'}
                   </button>
                   <div className="flex-1" />
                   <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">{msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
@@ -343,32 +394,37 @@ export default function CoachAI() {
 
       {/* Native Shell Input */}
       <div className="p-6 bg-white border-t border-gray-100 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.05)]">
-        <form 
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleSend(inputValue);
-          }}
-          className="relative flex items-center gap-3"
-        >
+        <div className="relative flex items-end gap-3">
           <div className="relative flex-1">
-            <input 
-              type="text"
+            <textarea 
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
-              placeholder="Diagnose hubs, teams, or operators..."
-              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-5 py-4 pr-12 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-orange-300 focus:ring-4 focus:ring-orange-500/5 transition-all font-medium"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSend(inputValue);
+                }
+              }}
+              placeholder="Ask about burnout, risk, performance, or accountability..."
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-5 py-3 pr-12 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-orange-300 focus:ring-4 focus:ring-orange-500/5 transition-all font-medium resize-none min-h-[52px] max-h-[150px]"
+              rows={1}
+              onInput={(e) => {
+                const target = e.target as HTMLTextAreaElement;
+                target.style.height = 'auto';
+                target.style.height = `${target.scrollHeight}px`;
+              }}
             />
-            <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
+            <div className="absolute right-3 bottom-1.5 flex items-center gap-2">
               <button 
-                type="submit"
+                onClick={() => handleSend(inputValue)}
                 disabled={!inputValue.trim() || isTyping}
-                className="w-10 h-10 rounded-xl bg-gray-900 hover:bg-black disabled:opacity-40 text-white flex items-center justify-center transition-all shadow-md active:scale-95"
+                className="w-8 h-8 rounded-lg bg-gray-900 hover:bg-black disabled:opacity-40 text-white flex items-center justify-center transition-all shadow-md active:scale-95"
               >
-                <Send className="w-4 h-4" />
+                <Send className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
-        </form>
+        </div>
         <div className="mt-4 flex items-center justify-center gap-8">
           <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest flex items-center gap-2">
             <Database className="w-3 h-3 text-gray-300" />

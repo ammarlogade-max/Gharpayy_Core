@@ -22,17 +22,18 @@ export async function GET(req: NextRequest) {
     const skip = (page - 1) * limit;
 
     await connectDB();
+    const isObjectIdUser = mongoose.Types.ObjectId.isValid(auth.id);
 
     // 1. Build User Filter based on scope
     const userFilter: any = { isApproved: { $ne: false } };
-    if (scope === 'team' || scope === 'hub') {
+    if (isObjectIdUser && (scope === 'team' || scope === 'hub')) {
       const currentUser = await User.findById(auth.id).select('teamId officeZoneId').lean() as any;
-      if (!currentUser) return NextResponse.json({ error: 'User not found' }, { status: 404 });
-      
-      if (scope === 'team' && currentUser.teamId) {
-        userFilter.teamId = currentUser.teamId;
-      } else if (scope === 'hub' && currentUser.officeZoneId) {
-        userFilter.officeZoneId = currentUser.officeZoneId;
+      if (currentUser) {
+        if (scope === 'team' && currentUser.teamId) {
+          userFilter.teamId = currentUser.teamId;
+        } else if (scope === 'hub' && currentUser.officeZoneId) {
+          userFilter.officeZoneId = currentUser.officeZoneId;
+        }
       }
     }
 
@@ -72,13 +73,15 @@ export async function GET(req: NextRequest) {
 
     // 5. Get current user's rank
     let userRank = null;
-    const currentUserProfile = await GrowthProfile.findOne({ userId: auth.id }).lean();
-    if (currentUserProfile) {
-      const betterProfilesCount = await GrowthProfile.countDocuments({
-        userId: { $in: userIds },
-        [sortField]: { $gt: (currentUserProfile as any)[sortField] }
-      });
-      userRank = betterProfilesCount + 1;
+    if (isObjectIdUser) {
+      const currentUserProfile = await GrowthProfile.findOne({ userId: auth.id }).lean();
+      if (currentUserProfile) {
+        const betterProfilesCount = await GrowthProfile.countDocuments({
+          userId: { $in: userIds },
+          [sortField]: { $gt: (currentUserProfile as any)[sortField] }
+        });
+        userRank = betterProfilesCount + 1;
+      }
     }
 
     return NextResponse.json({

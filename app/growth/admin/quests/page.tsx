@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Plus, Pencil, Archive, ToggleLeft, ToggleRight,
-  Loader2, Target, X, Save, AlertCircle, Calendar, Clock
+  Loader2, Target, X, Save, AlertCircle, Calendar, Clock, Coins
 } from 'lucide-react';
 
 type QuestKind = 'daily' | 'weekly' | 'seasonal';
@@ -123,31 +123,31 @@ export default function AdminQuestsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-black text-gray-900 flex items-center gap-2">
-            <Target className="w-6 h-6 text-indigo-500" />
+            <Target className="w-6 h-6 text-orange-500" />
             Quest Management
           </h1>
           <p className="text-sm text-gray-500 mt-1">Configure daily and weekly missions for all employees.</p>
         </div>
         <button
           onClick={openCreate}
-          className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white font-bold text-sm rounded-xl hover:bg-indigo-700 transition shadow-sm"
+          className="flex items-center gap-2 px-4 py-2.5 bg-orange-600 text-white font-bold text-sm rounded-xl hover:bg-orange-700 transition shadow-sm hover:shadow-md hover:scale-[1.02] active:scale-[0.98]"
         >
           <Plus className="w-4 h-4" /> New Quest
         </button>
       </div>
 
       {/* Filter */}
-      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
+      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit border border-gray-200/50">
         {(['all', 'daily', 'weekly', 'seasonal'] as const).map(f => (
           <button
             key={f}
             onClick={() => setFilter(f)}
-            className={`px-4 py-1.5 rounded-lg text-xs font-bold capitalize transition ${filter === f ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+            className={`px-4 py-1.5 rounded-lg text-xs font-bold capitalize transition-all duration-200 ${filter === f ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
           >
             {f}
           </button>
@@ -157,8 +157,9 @@ export default function AdminQuestsPage() {
       {/* Table */}
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
         {loading ? (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 className="w-6 h-6 animate-spin text-indigo-400" />
+          <div className="flex flex-col items-center justify-center py-16 gap-3">
+            <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Fetching Quests...</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -172,31 +173,36 @@ export default function AdminQuestsPage() {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {quests.length === 0 && (
-                  <tr><td colSpan={8} className="px-5 py-12 text-center text-sm text-gray-400">No quests found.</td></tr>
+                  <tr><td colSpan={8} className="px-5 py-12 text-center text-sm text-gray-400 font-medium italic">No quests found in this category.</td></tr>
                 )}
                 {quests.map((q) => (
-                  <tr key={q._id} className="hover:bg-gray-50/60 transition">
+                  <tr key={q._id} className="hover:bg-orange-50/20 transition group">
                     <td className="px-5 py-3">
-                      <div className="font-semibold text-sm text-gray-900 max-w-[180px] truncate">{q.title}</div>
+                      <div className="font-bold text-sm text-gray-900 max-w-[180px] truncate group-hover:text-orange-600 transition-colors">{q.title}</div>
                       <div className="text-[11px] text-gray-400 max-w-[180px] truncate">{q.description}</div>
                     </td>
                     <td className="px-5 py-3">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold capitalize ${KIND_COLORS[q.kind]}`}>{q.kind}</span>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-tighter ${KIND_COLORS[q.kind]}`}>{q.kind}</span>
                     </td>
                     <td className="px-5 py-3">
-                      <span className="text-xs font-medium text-gray-600 truncate max-w-[120px] inline-block">{q.metric}</span>
+                      <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded uppercase tracking-wider">{q.metric}</span>
                     </td>
-                    <td className="px-5 py-3 font-bold text-sm text-gray-800">{q.target}</td>
-                    <td className="px-5 py-3 text-sm font-bold text-indigo-600">+{q.xpAward} XP</td>
-                    <td className="px-5 py-3 text-sm font-bold text-orange-600">+{q.coinAward} 🪙</td>
+                    <td className="px-5 py-3 font-black text-sm text-gray-800">{q.target}</td>
+                    <td className="px-5 py-3 text-sm font-black text-orange-600">+{q.xpAward} XP</td>
                     <td className="px-5 py-3">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${q.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                      <div className="flex items-center gap-1 text-sm font-black text-yellow-600">
+                        <Coins className="w-3.5 h-3.5" />
+                        <span>+{q.coinAward}</span>
+                      </div>
+                    </td>
+                    <td className="px-5 py-3">
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-tighter ${q.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
                         {q.active ? 'Active' : 'Inactive'}
                       </span>
                     </td>
-                    <td className="px-5 py-3">
-                      <div className="flex items-center gap-1">
-                        <button onClick={() => openEdit(q)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-indigo-500 transition" title="Edit">
+                    <td className="px-5 py-3 text-right">
+                      <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => openEdit(q)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-orange-500 transition" title="Edit">
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
                         <button onClick={() => toggleActive(q)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-blue-500 transition" title={q.active ? 'Deactivate' : 'Activate'}>

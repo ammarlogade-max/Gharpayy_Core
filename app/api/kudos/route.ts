@@ -47,14 +47,16 @@ export async function POST(req: NextRequest) {
       );
 
       // Notify recipient
-      await NotificationService.createNotification({
-        userId: toId,
-        type: 'KUDOS_RECEIVED',
-        title: 'New Kudo Received! 🌟',
-        message: `${user.fullName || user.email} gave you a kudo for being "${tag}"!`,
-        link: '/kudos',
-        metadata: { kudoId: newKudo.id, fromName: user.fullName || user.email }
-      });
+      if (toId !== user.id) {
+        await NotificationService.createNotification({
+          userId: toId,
+          type: 'KUDOS_RECEIVED',
+          title: 'New Kudo Received! 🌟',
+          message: `You received a kudo for being "${tag}"!`,
+          link: '/kudos',
+          metadata: { kudoId: newKudo.id, fromName: user.fullName || user.email }
+        });
+      }
 
       // Growth Engine Integration: Award XP for giving and receiving kudos
       void emitGrowthEvent({

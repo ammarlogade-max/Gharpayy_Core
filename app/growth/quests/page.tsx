@@ -5,18 +5,28 @@ import { Trophy, Calendar, Target, Loader2, Sparkles } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { QuestCard } from '@/modules/growth/components/QuestCard';
 import { toast } from 'sonner';
-import EmployeeLayout from '@/components/EmployeeLayout';
+import GrowthLayoutWrapper from '@/modules/growth/components/GrowthLayoutWrapper';
+import { useNotifications } from '@/modules/notifications/store/NotificationContext';
+import { useRouter } from 'next/navigation';
 
 export default function QuestsPage() {
+  const router = useRouter();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [claimingId, setClaimingId] = useState<string | null>(null);
+  const { notifications } = useNotifications();
 
   const fetchQuests = async () => {
     try {
       const r = await fetch('/api/growth/quests');
       const d = await r.json();
-      if (d.ok) setData(d);
+      if (d.ok) {
+        if (d.isAdmin) {
+          router.push('/growth/admin/analytics');
+          return;
+        }
+        setData(d);
+      }
     } catch (e) {
       console.error(e);
       toast.error("Failed to load quests");
@@ -28,6 +38,15 @@ export default function QuestsPage() {
   useEffect(() => {
     fetchQuests();
   }, []);
+
+  useEffect(() => {
+    if (notifications.length > 0) {
+      const last = notifications[0];
+      if (last.metadata?.type === 'quest_completion' || last.metadata?.type === 'xp_gain') {
+        fetchQuests();
+      }
+    }
+  }, [notifications]);
 
   const handleClaim = async (questId: string) => {
     setClaimingId(questId);
@@ -57,17 +76,17 @@ export default function QuestsPage() {
 
   if (loading) {
     return (
-      <EmployeeLayout>
+      <GrowthLayoutWrapper>
         <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
           <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
           <p className="text-sm font-medium text-gray-500">Loading missions...</p>
         </div>
-      </EmployeeLayout>
+      </GrowthLayoutWrapper>
     );
   }
 
   return (
-    <EmployeeLayout>
+    <GrowthLayoutWrapper>
       <div className="space-y-8">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div className="space-y-1">
@@ -138,6 +157,6 @@ export default function QuestsPage() {
         </div>
       </div>
       </div>
-    </EmployeeLayout>
+    </GrowthLayoutWrapper>
   );
 }

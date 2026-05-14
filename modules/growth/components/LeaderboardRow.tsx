@@ -4,7 +4,7 @@ import React from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { Trophy, Medal } from 'lucide-react';
+import { Trophy, Medal, Coins, Flame, Zap } from 'lucide-react';
 
 interface LeaderboardRowProps {
   rank: number;
@@ -42,8 +42,8 @@ export const LeaderboardRow: React.FC<LeaderboardRowProps> = ({
     <div className={cn(
       "flex items-center gap-4 p-3 rounded-2xl transition-all border",
       isCurrentUser 
-        ? "bg-orange-50 border-orange-200 shadow-sm shadow-orange-100" 
-        : "bg-white border-transparent hover:border-gray-100 hover:bg-gray-50/50"
+      ? "bg-orange-50 border-orange-200 shadow-sm shadow-orange-100" 
+      : "bg-white border-transparent hover:border-gray-100 hover:bg-gray-50/50"
     )}>
       <div className="w-8 flex justify-center flex-shrink-0">
         {rankIcon()}
@@ -70,7 +70,12 @@ export const LeaderboardRow: React.FC<LeaderboardRowProps> = ({
       </div>
 
       <div className="text-right flex-shrink-0">
-        <div className="text-sm font-black text-gray-900">{value.toLocaleString()}</div>
+        <div className="flex items-center justify-end gap-1.5 text-sm font-black text-gray-900">
+           {metricLabel === 'COINS' && <Coins className="w-3.5 h-3.5 text-yellow-500" />}
+           {metricLabel === 'XP' && <Zap className="w-3.5 h-3.5 text-orange-500" />}
+           {metricLabel === 'STREAK' && <Flame className="w-3.5 h-3.5 text-orange-500" />}
+           <span>{value.toLocaleString()}</span>
+        </div>
         <div className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">{metricLabel}</div>
       </div>
     </div>
