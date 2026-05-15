@@ -198,7 +198,8 @@ export default function LiveAttendance() {
       })
       .catch(err => console.error('[LiveAttendance] Fetch failed:', err))
       .finally(() => setLoading(false));
-  }, [selectedDate, selectedZone, selectedManager, statusFilter, dateFrom, dateTo, rangeMode, all.length]);
+  }, [selectedDate, selectedZone, selectedManager, statusFilter, dateFrom, dateTo, rangeMode]);
+  // NOTE: all.length intentionally excluded — adding it would reset the polling interval on every data update
 
   // Keep the ref in sync
   useEffect(() => { fetchDataRef.current = fetchData; }, [fetchData]);
@@ -300,13 +301,22 @@ export default function LiveAttendance() {
 
   // Staged rendering state: load only first 50 then more to prevent blocking
   const [visibleCount, setVisibleCount] = useState(50);
-  useEffect(() => { setVisibleCount(50); }, [filter, all]);
+  useEffect(() => { setVisibleCount(50); }, [filter, selectedDate, selectedZone, selectedManager, statusFilter, rangeMode]);
 
   const visibleEmployees = useMemo(() => filteredEmployees.slice(0, visibleCount), [filteredEmployees, visibleCount]);
 
+  // Defer break-report: it's below the fold; give heatmap 600ms headstart to avoid competing on initial page load
+  const [breakReportReady, setBreakReportReady] = useState(false);
   useEffect(() => {
+    const t = setTimeout(() => setBreakReportReady(true), 600);
+    return () => clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
+    if (!breakReportReady) return;
     fetchBreakReport();
-  }, [breakMode, selectedDate, dateFrom, dateTo, selectedZone, selectedManager]);
+  }, [breakMode, selectedDate, dateFrom, dateTo, selectedZone, selectedManager, breakReportReady]);
+  // eslint-disable-line react-hooks/exhaustive-deps
 
   const openDrill = async (empId: string) => {
     setDrillLoading(true); setDrill(null);

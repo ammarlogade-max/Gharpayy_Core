@@ -156,20 +156,23 @@ export async function GET(req: NextRequest) {
       const logAttMap = new Map((logAtt as any[]).map(a => [a.employeeId.toString(), a]));
 
       // Heatmap attendance
-      const heatmap = users.map((u: any) => {
-        const empAtt = allAttMap.get(u._id.toString()) || [];
-        const days: Record<string, string> = {};
-        for (const a of empAtt) days[a.date] = a.dayStatus;
-        return {
-          employeeId:   u._id.toString(),
-          employeeName: u.fullName,
-          role:         u.role,
-          playbookRole: u.playbookRole || 'recruiter',
-          team:         (u.officeZoneId as Record<string, unknown>)?.name || 'No Zone',
-          isApproved:   u.isApproved,
-          days,
-        };
-      });
+      let heatmap;
+      if (week || searchParams.get('includeHeatmap') === 'true') {
+        heatmap = users.map((u: any) => {
+          const empAtt = allAttMap.get(u._id.toString()) || [];
+          const days: Record<string, string> = {};
+          for (const a of empAtt) days[a.date] = a.dayStatus;
+          return {
+            employeeId:   u._id.toString(),
+            employeeName: u.fullName,
+            role:         u.role,
+            playbookRole: u.playbookRole || 'recruiter',
+            team:         (u.officeZoneId as Record<string, unknown>)?.name || 'No Zone',
+            isApproved:   u.isApproved,
+            days,
+          };
+        });
+      }
 
       // Selected date log
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
