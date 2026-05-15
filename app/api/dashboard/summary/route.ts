@@ -31,9 +31,29 @@ export async function GET() {
         date: { $gte: sevenDaysAgo, $lte: today },
       }).sort({ date: 1 }).lean(),
 
-      Task.find({ assignedTo: userId }).sort({ createdAt: -1 }).lean(),
+      Task.aggregate([
+        { $match: { assignedTo: userId } },
+        { $group: {
+            _id: null,
+            total: { $sum: 1 },
+            pending: { $sum: { $cond: [{ $in: ['$status', ['todo', 'in_progress']] }, 1, 0] } },
+            overdue: { $sum: { $cond: [{ $eq: ['$status', 'overdue'] }, 1, 0] } },
+            completed: { $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] } },
+            blocked: { $sum: { $cond: [{ $eq: ['$status', 'blocked'] }, 1, 0] } }
+          }
+        }
+      ]),
 
-      Leave.find({ employeeId: userId }).sort({ createdAt: -1 }).lean(),
+      Leave.aggregate([
+        { $match: { employeeId: userId } },
+        { $group: {
+            _id: null,
+            total: { $sum: 1 },
+            pending: { $sum: { $cond: [{ $eq: ['$status', 'pending'] }, 1, 0] } },
+            approved: { $sum: { $cond: [{ $eq: ['$status', 'approved'] }, 1, 0] } }
+          }
+        }
+      ]),
 
       Tracker.findOne({ employeeId: userId, date: today }).lean(),
     ]);
@@ -57,19 +77,21 @@ export async function GET() {
       : null;
 
     // ── Tasks summary ──────────────────────────────────────────
+    const tStats = tasks[0] || { total: 0, pending: 0, overdue: 0, completed: 0, blocked: 0 };
     const taskStats = {
-      total: tasks.length,
-      pending: tasks.filter((t: any) => t.status === 'todo' || t.status === 'in_progress').length,
-      overdue: tasks.filter((t: any) => t.status === 'overdue').length,
-      completed: tasks.filter((t: any) => t.status === 'completed').length,
-      blocked: tasks.filter((t: any) => t.status === 'blocked').length,
+      total: tStats.total,
+      pending: tStats.pending,
+      overdue: tStats.overdue,
+      completed: tStats.completed,
+      blocked: tStats.blocked,
     };
 
     // ── Leaves summary ─────────────────────────────────────────
+    const lStats = leaves[0] || { total: 0, pending: 0, approved: 0 };
     const leaveStats = {
-      pending: leaves.filter((l: any) => l.status === 'pending').length,
-      approved: leaves.filter((l: any) => l.status === 'approved').length,
-      total: leaves.length,
+      pending: lStats.pending,
+      approved: lStats.approved,
+      total: lStats.total,
     };
 
     // ── Pending actions for this employee ─────────────────────

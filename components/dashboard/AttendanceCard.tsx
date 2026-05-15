@@ -20,12 +20,13 @@ function fmtClock(secs: number) {
 
 interface AttendanceCardProps {
   status: any;
+  loading?: boolean;
   onPunchIn: () => void;
   onPunchOut: () => void;
   onToggleBreak: () => void;
 }
 
-export function AttendanceCard({ status, onPunchIn, onPunchOut, onToggleBreak }: AttendanceCardProps) {
+export function AttendanceCard({ status, loading, onPunchIn, onPunchOut, onToggleBreak }: AttendanceCardProps) {
   const [, setTick] = React.useState(0);
   React.useEffect(() => {
     const timer = setInterval(() => setTick(t => t + 1), 1000);
@@ -57,6 +58,28 @@ export function AttendanceCard({ status, onPunchIn, onPunchOut, onToggleBreak }:
   const isClockedIn = status?.isCheckedIn;
   const isOnBreak = status?.isOnBreak;
   const isInsideGeofence = status?.geofence?.isInside;
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-[32px] border border-gray-100 shadow-sm overflow-hidden p-8 animate-pulse">
+        <div className="flex justify-between items-start mb-8">
+          <div className="space-y-2">
+            <div className="h-3 w-32 bg-gray-200 rounded" />
+            <div className="h-8 w-48 bg-gray-200 rounded" />
+          </div>
+          <div className="h-6 w-32 bg-gray-200 rounded-full" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
+          <div className="space-y-4">
+            <div className="h-24 w-full bg-gray-100 rounded-[24px]" />
+            <div className="h-16 w-full bg-orange-50 rounded-[20px]" />
+          </div>
+          <div className="h-32 w-full bg-gray-100 rounded-[24px]" />
+        </div>
+        <div className="h-4 w-64 bg-gray-100 rounded" />
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white rounded-[32px] border border-gray-100 shadow-xl shadow-gray-200/20 overflow-hidden relative group">

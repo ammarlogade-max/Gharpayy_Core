@@ -27,8 +27,8 @@ function fmtClock(secs: number) {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
-export default function Dashboard() {
-  const [user, setUser] = useState<any>(null);
+export default function Dashboard({ initialUser }: { initialUser?: any }) {
+  const [user, setUser] = useState<any>(initialUser);
   const [att, setAtt] = useState<any>(null);
   const [summary, setSummary] = useState<any>(null);
   const [activities, setActivities] = useState<any[]>([]);
@@ -78,7 +78,9 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    fetch('/api/auth/me').then(r => r.json()).then(d => setUser(d)).catch(() => {});
+    if (!initialUser) {
+      fetch('/api/auth/me').then(r => r.json()).then(d => setUser(d)).catch(() => {});
+    }
     fetchAtt();
     fetchSummary();
     fetchActivity();
@@ -180,6 +182,7 @@ export default function Dashboard() {
             <div className="xl:col-span-2 space-y-8">
               <AttendanceCard
                 status={att}
+                loading={attLoading}
                 onPunchIn={() => handleActionWithSelfie('/api/attendance/checkin')}
                 onPunchOut={() => handleActionWithSelfie('/api/attendance/checkout', { type: 'checkout' })}
                 onToggleBreak={() => {
