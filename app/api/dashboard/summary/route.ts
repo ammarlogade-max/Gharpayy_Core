@@ -4,7 +4,6 @@ import { getAuthUser } from '@/lib/auth';
 import { getISTDateStr } from '@/lib/attendance-utils';
 import Attendance from '@/models/Attendance';
 import Task from '@/models/Task';
-import Leave from '@/models/Leave';
 import Tracker from '@/models/Tracker';
 
 export async function GET() {
@@ -25,7 +24,7 @@ export async function GET() {
       return getISTDateStr(d);
     })();
 
-    const [recentAttendance, tasks, leaves, tracker] = await Promise.all([
+    const [recentAttendance, tasks, tracker] = await Promise.all([
       Attendance.find({
         employeeId: userId,
         date: { $gte: sevenDaysAgo, $lte: today },
@@ -40,17 +39,6 @@ export async function GET() {
             overdue: { $sum: { $cond: [{ $eq: ['$status', 'overdue'] }, 1, 0] } },
             completed: { $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] } },
             blocked: { $sum: { $cond: [{ $eq: ['$status', 'blocked'] }, 1, 0] } }
-          }
-        }
-      ]),
-
-      Leave.aggregate([
-        { $match: { employeeId: userId } },
-        { $group: {
-            _id: null,
-            total: { $sum: 1 },
-            pending: { $sum: { $cond: [{ $eq: ['$status', 'pending'] }, 1, 0] } },
-            approved: { $sum: { $cond: [{ $eq: ['$status', 'approved'] }, 1, 0] } }
           }
         }
       ]),
@@ -86,13 +74,7 @@ export async function GET() {
       blocked: tStats.blocked,
     };
 
-    // ── Leaves summary ─────────────────────────────────────────
-    const lStats = leaves[0] || { total: 0, pending: 0, approved: 0 };
-    const leaveStats = {
-      pending: lStats.pending,
-      approved: lStats.approved,
-      total: lStats.total,
-    };
+
 
     // ── Pending actions for this employee ─────────────────────
     const pendingActions: { title: string; desc: string; urgency: string; href: string }[] = [];
@@ -105,14 +87,7 @@ export async function GET() {
         href: '/my-tasks',
       });
     }
-    if (leaveStats.pending > 0) {
-      pendingActions.push({
-        title: 'Leave Awaiting Approval',
-        desc: `${leaveStats.pending} leave request${leaveStats.pending > 1 ? 's' : ''} pending`,
-        urgency: 'medium',
-        href: '/my-leaves',
-      });
-    }
+
     if (taskStats.blocked > 0) {
       pendingActions.push({
         title: 'Blocked Tasks',
@@ -134,7 +109,6 @@ export async function GET() {
         avgWorkMins,
       },
       taskStats,
-      leaveStats,
       pendingActions,
       checkins,
     });

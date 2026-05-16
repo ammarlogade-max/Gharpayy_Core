@@ -3,6 +3,7 @@ import React from 'react';
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Sparkles } from 'lucide-react';
+import { formatHHMM } from '@/lib/attendance-shared';
 
 interface DashboardHeaderProps {
   user: any;
@@ -85,7 +86,7 @@ export function DashboardHeader({ user, attendance, growthLevel }: DashboardHead
           <div className="space-y-1">
             <p className="text-[10px] font-mono font-bold text-gray-400 uppercase tracking-widest leading-none">Work Today</p>
             <p className="text-sm font-black text-gray-900">
-              {Math.floor(liveWorkMins / 60)}h {liveWorkMins % 60}m
+              {formatHHMM(liveWorkMins)}
             </p>
           </div>
         ) : (

@@ -182,6 +182,20 @@ export async function GET(req: NextRequest) {
           const firstSess = att?.sessions?.find((s: any) => (s?.type || 'work') !== 'break');
           const rules = applyUserSchedule(baseRules, u.workSchedule);
           const derived = att ? deriveStatusFromAttendance(att, rules) : { dayStatus: 'Absent', lateByMins: 0, earlyByMins: 0 };
+          
+          // Anomaly Detection
+          const anomalies: string[] = [];
+          if (att?.totalBreakMins > (rules.breakDuration || 45)) anomalies.push('excessive_break');
+          
+          if (att?.isCheckedIn || att?.isOnBreak || att?.isInField) {
+            const lastSess = att.sessions[att.sessions.length - 1];
+            if (lastSess && !lastSess.checkOut) {
+              const openHrs = (Date.now() - new Date(lastSess.checkIn).getTime()) / (1000 * 60 * 60);
+              if (openHrs > 12) anomalies.push('long_active_session');
+            }
+          }
+          if (derived.lateByMins > 60) anomalies.push('severe_late');
+
           return {
             employeeId:    u._id.toString(),
             employeeName:  u.fullName,
@@ -196,6 +210,7 @@ export async function GET(req: NextRequest) {
             totalBreakMins: att?.totalBreakMins || 0,
             lateByMins:    derived.lateByMins || 0,
             earlyByMins:   derived.earlyByMins || 0,
+            anomalies,
           };
         })
         .sort((a: any, b: any) => statusSortOrder(a.dayStatus) - statusSortOrder(b.dayStatus));

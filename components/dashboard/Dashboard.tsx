@@ -18,7 +18,7 @@ import { XPBar } from '@/modules/growth/components/XPBar';
 import { StreakWidget } from '@/modules/growth/components/StreakWidget';
 import { AchievementBadge } from '@/modules/growth/components/AchievementBadge';
 import { Trophy, Target, ChevronRight, Sparkles as SparklesIcon } from 'lucide-react';
-import { useRouter as useNextRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 
 function fmtClock(secs: number) {
   const h = Math.floor(secs / 3600);
@@ -27,8 +27,16 @@ function fmtClock(secs: number) {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
-export default function Dashboard({ initialUser }: { initialUser?: any }) {
-  const [user, setUser] = useState<any>(initialUser);
+interface DashboardUser {
+  id: string;
+  role: string;
+  fullName?: string;
+  email?: string;
+  growthEngineEnabled?: boolean;
+}
+
+export default function Dashboard({ initialUser }: { initialUser?: DashboardUser }) {
+  const [user, setUser] = useState<DashboardUser | undefined>(initialUser);
   const [att, setAtt] = useState<any>(null);
   const [summary, setSummary] = useState<any>(null);
   const [activities, setActivities] = useState<any[]>([]);
@@ -37,10 +45,10 @@ export default function Dashboard({ initialUser }: { initialUser?: any }) {
   const [activityLoading, setActivityLoading] = useState(true);
   const [isKudoOpen, setIsKudoOpen] = useState(false);
   const [showSelfie, setShowSelfie] = useState(false);
-  const [pendingAction, setPendingAction] = useState<any>(null);
+  const [pendingAction, setPendingAction] = useState<{ endpoint: string; body: any } | null>(null);
   const [growth, setGrowth] = useState<any>(null);
   const { toast } = useToast();
-  const router = useNextRouter();
+  const router = useRouter();
 
   const fetchAtt = async () => {
     try {
@@ -194,7 +202,6 @@ export default function Dashboard({ initialUser }: { initialUser?: any }) {
               <div className="hidden xl:block">
                 <DailyStats
                   taskStats={summary?.taskStats ?? null}
-                  leaveStats={summary?.leaveStats ?? null}
                   attendanceRate={summary?.stats?.attendanceRate ?? null}
                   punctualityRate={summary?.stats?.punctualityRate ?? null}
                   avgWorkMins={summary?.stats?.avgWorkMins ?? null}
@@ -213,7 +220,6 @@ export default function Dashboard({ initialUser }: { initialUser?: any }) {
               <div className="xl:hidden">
                 <DailyStats
                   taskStats={summary?.taskStats ?? null}
-                  leaveStats={summary?.leaveStats ?? null}
                   attendanceRate={summary?.stats?.attendanceRate ?? null}
                   punctualityRate={summary?.stats?.punctualityRate ?? null}
                   avgWorkMins={summary?.stats?.avgWorkMins ?? null}

@@ -62,8 +62,20 @@ export async function POST(req: NextRequest) {
       if (incomingToken !== user.activeSessionToken) {
         const existingSession = verifyToken(user.activeSessionToken);
         if (existingSession) {
-          // If the token is still valid (not expired), prevent login
-          return NextResponse.json({ error: 'Already logged in at some other place.' }, { status: 403 });
+          // SESSION STALE RECOVERY: 
+          // If the last heartbeat was more than 15 mins ago (2 mins in dev), consider the session "abandoned"
+          // even if the JWT token itself hasn't expired.
+          const lastSeen = user.lastSeenAt ? new Date(user.lastSeenAt).getTime() : 0;
+          const threshold = process.env.NODE_ENV === 'development' ? 2 * 60 * 1000 : 15 * 60 * 1000;
+          const isStale = (Date.now() - lastSeen) > threshold;
+
+          if (!isStale) {
+            return NextResponse.json({ error: 'Already logged in at some other place.' }, { status: 403 });
+          }
+          
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`[Auth] Reclaiming stale session for ${user.email}. Last seen: ${user.lastSeenAt}`);
+          }
         }
       }
     }
@@ -93,6 +105,8 @@ export async function POST(req: NextRequest) {
 
     // Save the new token as the active session
     user.activeSessionToken = token;
+    user.activeSessionAt = new Date();
+    user.lastSeenAt = new Date();
     await user.save();
 
     const userResponse: Record<string, any> = {
