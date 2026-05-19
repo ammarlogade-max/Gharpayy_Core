@@ -15,16 +15,14 @@ export async function POST(req: NextRequest) {
 
     await connectDB();
     
-    // Efficiently update lastSeenAt only if the token matches the active session
-    const res = await User.updateOne(
-      { _id: auth.id, activeSessionToken: token },
-      { $set: { lastSeenAt: new Date() } }
-    );
-
-    if (res.matchedCount === 0) {
-      // This means the user has a valid token for some session, 
-      // but it's not the "active" session in the DB (stale or replaced).
-      return NextResponse.json({ error: 'Session superseded', superseded: true }, { status: 403 });
+    // Informational only: update lastSeenAt regardless of activeSessionToken matching
+    try {
+      await User.updateOne(
+        { _id: auth.id },
+        { $set: { lastSeenAt: new Date() } }
+      );
+    } catch (dbError) {
+      console.warn('[Heartbeat Warning] Failed to update user heartbeat metadata:', dbError);
     }
 
     return NextResponse.json({ ok: true });
