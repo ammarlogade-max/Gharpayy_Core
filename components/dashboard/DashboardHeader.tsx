@@ -44,13 +44,17 @@ export function DashboardHeader({ user, attendance, growthLevel }: DashboardHead
 
   const liveWorkMins = getLiveWorkMins();
 
-  const statusLabel = isClockedIn
-    ? isOnBreak ? 'On Break' : 'Clocked In & Active'
-    : 'Not Clocked In';
+  const statusLabel = isOnBreak
+    ? 'On Break'
+    : isClockedIn
+      ? 'Clocked In & Active'
+      : 'Not Clocked In';
 
-  const statusColor = isClockedIn
-    ? isOnBreak ? 'bg-orange-500' : 'bg-emerald-500'
-    : 'bg-gray-300';
+  const statusColor = isOnBreak
+    ? 'bg-orange-500'
+    : isClockedIn
+      ? 'bg-emerald-500'
+      : 'bg-gray-300';
 
   const role = user?.playbookRole || user?.role || 'employee';
 

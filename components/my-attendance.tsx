@@ -125,10 +125,12 @@ export default function MyAttendance() {
   };
 
   const doAction = async (endpoint: string, body: any = {}) => {
+    console.log('[DEBUG-MYATTENDANCE] doAction called for endpoint:', endpoint, 'with body keys:', Object.keys(body));
     setClocking(true);
     flash('Verifying...', true);
     try {
       const pos = await getLocation();
+      console.log('[DEBUG-MYATTENDANCE] getLocation resolved:', pos ? { lat: pos.coords.latitude, lng: pos.coords.longitude } : null);
 
       const finalBody = {
         ...body,
@@ -136,12 +138,14 @@ export default function MyAttendance() {
         lng: pos?.coords.longitude ?? null,
       };
 
+      console.log('[DEBUG-MYATTENDANCE] sending POST request to', endpoint);
       const r = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(finalBody),
       });
       const d = await r.json();
+      console.log('[DEBUG-MYATTENDANCE] received response from', endpoint, ':', d);
 
       if (d.ok || d.success) {
         flash(getSuccessMsg(body, endpoint), true);
@@ -162,22 +166,31 @@ export default function MyAttendance() {
       } else {
         flash(d.error || 'Action failed. Please try again.', false);
       }
-    } catch {
+    } catch (err) {
+      console.error('[DEBUG-MYATTENDANCE] doAction caught error:', err);
       flash('Network error. Please check your connection and try again.', false);
     } finally {
       // Always reset — no path can leave the button stuck
       setClocking(false);
+      console.log('[DEBUG-MYATTENDANCE] doAction completed, clocking set to false');
     }
   };
 
   const handleActionWithSelfie = (endpoint: string, body: any) => {
+    console.log('[DEBUG-MYATTENDANCE] handleActionWithSelfie called for endpoint:', endpoint, 'with body:', body);
     setPendingAction({ endpoint, body });
     setShowSelfie(true);
+    console.log('[DEBUG-MYATTENDANCE] setPendingAction set, showSelfie set to true');
   };
 
   const onSelfieCaptured = async (image: string, faceFingerprint?: string) => {
-    if (!pendingAction) return;
+    console.log('[DEBUG-MYATTENDANCE] onSelfieCaptured invoked');
+    if (!pendingAction) {
+      console.warn('[DEBUG-MYATTENDANCE] onSelfieCaptured aborted: no pendingAction found');
+      return;
+    }
     const action = pendingAction;
+    console.log('[DEBUG-MYATTENDANCE] pendingAction found:', action.endpoint, action.body);
     // Clear pending state immediately to prevent double-submit
     setPendingAction(null);
     setShowSelfie(false);
